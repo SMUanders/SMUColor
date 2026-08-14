@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="SMU Color — PANTONE 658 C">
+  <!-- Farveprøve-chip (Pantone-kort-stil) med Signmeups lyseblå PANTONE 658 C -->
+  <rect x="4" y="4" width="504" height="504" rx="104" fill="#ffffff" stroke="#e4e0d8" stroke-width="8"/>
+  <!-- Farvefelt: PANTONE 658 C -->
+  <rect x="52" y="48" width="408" height="250" rx="14" fill="#B1C9E8"/>
+  <!-- Wordmark + farvekode i chip-format -->
+  <text x="56" y="374" font-family="Helvetica, Arial, sans-serif" font-size="62" font-weight="800" fill="#213746" letter-spacing="-1">PANTONE<tspan font-size="22" baseline-shift="super">®</tspan></text>
+  <text x="58" y="440" font-family="Helvetica, Arial, sans-serif" font-size="54" font-weight="700" fill="#213746">658 C</text>
+</svg>

@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# env — hemmeligheder må aldrig committes
+.env
+.env.local
+.env.*.local
+
+# supabase CLI arbejdsfiler
+supabase/.temp/
+supabase/.branches/
+
+# editor / os
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# legacy DB-backups (ikke commit)
+supabase/backups/
+
+# intern kildefil med kontakt-faner (holdes ude af git)
+kilder/Tegnestueplan2023.xlsx
