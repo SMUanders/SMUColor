@@ -37,3 +37,6 @@ supabase/backups/
 
 # intern kildefil med kontakt-faner (holdes ude af git)
 kilder/Tegnestueplan2023.xlsx
+
+# Local Netlify folder
+.netlify
