@@ -163,6 +163,51 @@ export interface MatchEnriched extends Match {
   production?: ProductionContext | null
 }
 
+export type ObservationStatus =
+  | 'AI_EKSTRAHERET'
+  | 'TIL_GENNEMGANG'
+  | 'GODKENDT_SOM_FORSLAG'
+  | 'AFVIST'
+
+/**
+ * Historisk produktionsobservation (provenance/review-lag) — adskilt fra
+ * reference/materiale/match/verifikation. Rå transskription i *_as_written;
+ * normalisering sker kun som review-resultat. Bliver aldrig auto-verificeret.
+ */
+export interface Observation {
+  id: string
+  obs_kode: string | null
+  source_file: string | null
+  source_page: string | null
+  source_location: string | null
+  document_type: string | null
+  job_context: string | null
+  printer_as_written: string | null
+  media_group_as_written: string | null
+  material_as_written: string | null
+  profile_or_print_mode_as_written: string | null
+  pantone_as_written: string | null
+  internal_code_as_written: string | null
+  numeric_string_as_written: string | null
+  handwritten_as_written: string | null
+  color_name_as_written: string | null
+  physical_material_as_written: string | null
+  sample_present: boolean
+  sample_type: string | null
+  result_marking_as_written: string | null
+  assessment_signal_as_written: string | null
+  confidence: number | null
+  confidence_notes: string | null
+  transcription_notes: string | null
+  reviewer: string | null
+  review_decision: string | null
+  review_notes: string | null
+  status: ObservationStatus
+  created_at: string
+  updated_at: string
+  slettet: boolean
+}
+
 /** Aktuel bruger (fra Supabase Auth + profiler). */
 export interface CurrentUser {
   id: string

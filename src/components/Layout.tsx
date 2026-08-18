@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutList, LogOut, Search } from 'lucide-react'
+import { FileSearch, LayoutList, LogOut, Search } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getStore } from '../data'
 import { BrandMark } from './BrandMark'
@@ -44,6 +44,7 @@ export function Layout() {
 
           <nav style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
             <NavItem to="/" icon={<Search size={15} />} label="Søg" />
+            {user?.erRedaktoer && <NavItem to="/observationer" icon={<FileSearch size={15} />} label="Observationer" />}
             {user?.erRedaktoer && <NavItem to="/admin" icon={<LayoutList size={15} />} label="Administration" />}
           </nav>
 

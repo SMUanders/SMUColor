@@ -130,7 +130,7 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
         <section>
           <SectionTitle>Materialefarver (folie / RAL)</SectionTitle>
           <div className="smu-card" style={{ overflow: 'hidden' }}>
-            {result.materialColors.map(({ mc, material, matches, swatchHex }, i) => {
+            {result.materialColors.map(({ mc, material, matches, swatchHex, swatchAdvisory }, i) => {
               const withRef = matches.find((m) => m.reference_color_id)
               const clickable = Boolean(withRef?.reference_color_id)
               return (
@@ -157,7 +157,7 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
                       {mc.ral_kode && `RAL ${mc.ral_kode} · `}
                       {mc.legacy_pantone_raw && `Pantone ${mc.legacy_pantone_raw} (legacy) · `}
                       {matches.length} match{matches.length === 1 ? '' : 'es'}
-                      {swatchHex && ' · farve vejledende fra Pantone'}
+                      {swatchAdvisory && ' · vejledende visning via Pantone-match'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>

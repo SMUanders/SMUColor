@@ -8,6 +8,8 @@ import type {
   MatchStatus,
   Material,
   MaterialColor,
+  Observation,
+  ObservationStatus,
   ProductionContext,
   ReferenceColor,
   VerificationHistory,
@@ -33,6 +35,7 @@ interface Mutable {
   production: ProductionContext[]
   history: VerificationHistory[]
   issues: ImportIssue[]
+  observations: Observation[]
 }
 
 function now(): string {
@@ -52,6 +55,7 @@ export class LocalStore implements FarveStore {
     production: [],
     history: [],
     issues: [],
+    observations: [],
   }
   private ready: Promise<void>
 
@@ -66,15 +70,16 @@ export class LocalStore implements FarveStore {
 
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_KEY) : null
     if (saved) {
-      this.data = JSON.parse(saved)
+      this.data = { observations: [], ...JSON.parse(saved) }
       return
     }
     // Første kørsel: seed SMU-viden fra genererede filer.
-    const [materials, materialColors, matches, issues] = await Promise.all([
+    const [materials, materialColors, matches, issues, observations] = await Promise.all([
       import('./seed/materials.json'),
       import('./seed/material-colors.json'),
       import('./seed/matches.json'),
       import('./seed/import-issues.json'),
+      import('./seed/observations.json'),
     ])
     this.data = {
       materials: materials.default as unknown as Material[],
@@ -83,6 +88,7 @@ export class LocalStore implements FarveStore {
       production: [],
       history: [],
       issues: issues.default as unknown as ImportIssue[],
+      observations: observations.default as unknown as Observation[],
     }
     this.persist()
   }
@@ -136,10 +142,12 @@ export class LocalStore implements FarveStore {
       .map(({ mc }) => {
         const matches = this.liveMatches().filter((m) => m.material_color_id === mc.id)
         const refMatch = matches.find((m) => m.reference_color_id)
-        const swatchHex = refMatch?.reference_color_id
+        const pantoneHex = refMatch?.reference_color_id
           ? this.references.find((r) => r.id === refMatch.reference_color_id)?.hex ?? null
           : null
-        return { mc, material: materialOf(mc), matches, swatchHex }
+        // Autoritativ materialefarve (mc.hex) foretrækkes; ellers vejledende via Pantone.
+        const swatchHex = mc.hex ?? pantoneHex
+        return { mc, material: materialOf(mc), matches, swatchHex, swatchAdvisory: !mc.hex && !!pantoneHex }
       })
 
     const liveMatchIds = new Set(this.liveMatches().map((m) => m.id))
@@ -395,6 +403,27 @@ export class LocalStore implements FarveStore {
   async listImportIssues(): Promise<ImportIssue[]> {
     await this.ready
     return this.data.issues.filter((i) => !i.resolved)
+  }
+
+  async listObservations(filter?: { status?: ObservationStatus }): Promise<Observation[]> {
+    await this.ready
+    return this.data.observations
+      .filter((o) => !o.slettet && (!filter?.status || o.status === filter.status))
+      .sort((a, b) => (a.obs_kode ?? '').localeCompare(b.obs_kode ?? ''))
+  }
+
+  async getObservation(id: string): Promise<Observation | null> {
+    await this.ready
+    return this.data.observations.find((o) => o.id === id && !o.slettet) ?? null
+  }
+
+  async updateObservation(id: string, patch: Partial<Observation>, user: CurrentUser): Promise<Observation> {
+    await this.ready
+    const o = this.data.observations.find((x) => x.id === id)
+    if (!o) throw new Error('Observation ikke fundet')
+    Object.assign(o, patch, { reviewer: patch.reviewer ?? user.navn, updated_at: now() })
+    this.persist()
+    return o
   }
 
   async stats(): Promise<Stats> {

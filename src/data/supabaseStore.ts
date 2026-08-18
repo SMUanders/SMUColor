@@ -8,6 +8,8 @@ import type {
   MatchStatus,
   Material,
   MaterialColor,
+  Observation,
+  ObservationStatus,
   ProductionContext,
   ReferenceColor,
   VerificationHistory,
@@ -32,6 +34,7 @@ const T = {
   production: 'farve_production_context',
   history: 'farve_verification_history',
   issues: 'farve_import_issues',
+  observations: 'farve_observations',
 } as const
 
 export class SupabaseStore implements FarveStore {
@@ -164,11 +167,13 @@ export class SupabaseStore implements FarveStore {
       materialColors: mcScored.map(({ mc }) => {
         const matches = mcMatchMap.get(mc.id) ?? []
         const refMatch = matches.find((m) => m.reference_color_id)
+        const pantoneHex = refMatch?.reference_color_id ? refHex.get(refMatch.reference_color_id) ?? null : null
         return {
           mc,
           material: mc.material_id ? matMap.get(mc.material_id) ?? null : null,
           matches,
-          swatchHex: refMatch?.reference_color_id ? refHex.get(refMatch.reference_color_id) ?? null : null,
+          swatchHex: mc.hex ?? pantoneHex,
+          swatchAdvisory: !mc.hex && !!pantoneHex,
         }
       }),
       productions,
@@ -330,6 +335,30 @@ export class SupabaseStore implements FarveStore {
   async listImportIssues(): Promise<ImportIssue[]> {
     const { data } = await this.sb.from(T.issues).select('*').eq('resolved', false).order('created_at', { ascending: false })
     return (data as ImportIssue[]) ?? []
+  }
+
+  async listObservations(filter?: { status?: ObservationStatus }): Promise<Observation[]> {
+    let q = this.sb.from(T.observations).select('*').eq('slettet', false)
+    if (filter?.status) q = q.eq('status', filter.status)
+    const { data, error } = await q.order('obs_kode')
+    if (error) return [] // fail-soft indtil migrationen er kørt på Supabase
+    return (data as Observation[]) ?? []
+  }
+
+  async getObservation(id: string): Promise<Observation | null> {
+    const { data } = await this.sb.from(T.observations).select('*').eq('id', id).eq('slettet', false).maybeSingle()
+    return (data as Observation) ?? null
+  }
+
+  async updateObservation(id: string, patch: Partial<Observation>, user: CurrentUser): Promise<Observation> {
+    const { data, error } = await this.sb
+      .from(T.observations)
+      .update({ ...patch, reviewer: patch.reviewer ?? user.navn })
+      .eq('id', id)
+      .select('*')
+      .single()
+    if (error) throw error
+    return data as Observation
   }
 
   private async countMatches(status?: MatchStatus): Promise<number> {

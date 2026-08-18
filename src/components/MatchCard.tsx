@@ -27,7 +27,7 @@ function fmtDate(iso: string | null): string {
   return d.toLocaleDateString('da-DK', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function MatchCard({ match, canEdit }: { match: MatchEnriched; canEdit: boolean }) {
+export function MatchCard({ match, canEdit, showOpen = true }: { match: MatchEnriched; canEdit: boolean; showOpen?: boolean }) {
   const mc = match.materialColor
   const prod = match.production
   const isVerified = match.status === 'verificeret'
@@ -45,8 +45,13 @@ export function MatchCard({ match, canEdit }: { match: MatchEnriched; canEdit: b
             <AlertTriangle size={11} /> Til gennemgang
           </span>
         )}
+        {showOpen && (
+          <Link to={`/match/${match.id}`} className="smu-btn-ghost" style={{ marginLeft: 'auto', textDecoration: 'none' }}>
+            Åbn
+          </Link>
+        )}
         {canEdit && (
-          <Link to={`/match/${match.id}`} className="smu-btn-secondary" style={{ marginLeft: 'auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Link to={`/match/${match.id}/rediger`} className="smu-btn-secondary" style={{ marginLeft: showOpen ? undefined : 'auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Pencil size={14} /> {isVerified || match.status === 'afvist' ? 'Rediger' : 'Rediger / verificér'}
           </Link>
         )}

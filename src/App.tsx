@@ -5,8 +5,12 @@ import { Spinner } from './components/common'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import ColorDetail from './pages/ColorDetail'
+import MatchDetail from './pages/MatchDetail'
 import MatchEdit from './pages/MatchEdit'
 import Admin from './pages/Admin'
+import Observations from './pages/Observations'
+import ObservationReview from './pages/ObservationReview'
+import ReferenceSheet from './pages/ReferenceSheet'
 
 export default function App() {
   const { user, loading, requiresLogin } = useAuth()
@@ -31,6 +35,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
+      {/* Referenceark uden for Layout → rent print (ingen topbar) */}
+      <Route path="/match/:matchId/ark" element={<ReferenceSheet />} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="/farve/:refId" element={<ColorDetail />} />
@@ -42,8 +48,11 @@ export default function App() {
             </RequireRedaktoer>
           }
         />
+        {/* Read-only matchdetalje — alle autentificerede (også medarbejdere) */}
+        <Route path="/match/:matchId" element={<MatchDetail />} />
+        {/* Redigering/verifikation — kun redaktør */}
         <Route
-          path="/match/:matchId"
+          path="/match/:matchId/rediger"
           element={
             <RequireRedaktoer>
               <MatchEdit />
@@ -55,6 +64,22 @@ export default function App() {
           element={
             <RequireRedaktoer>
               <Admin />
+            </RequireRedaktoer>
+          }
+        />
+        <Route
+          path="/observationer"
+          element={
+            <RequireRedaktoer>
+              <Observations />
+            </RequireRedaktoer>
+          }
+        />
+        <Route
+          path="/observationer/:obsId"
+          element={
+            <RequireRedaktoer>
+              <ObservationReview />
             </RequireRedaktoer>
           }
         />

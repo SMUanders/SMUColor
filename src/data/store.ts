@@ -11,6 +11,8 @@ import type {
   MatchType,
   Material,
   MaterialColor,
+  Observation,
+  ObservationStatus,
   ProductionContext,
   ReferenceColor,
   VerificationHistory,
@@ -22,8 +24,14 @@ export interface SearchResult {
     mc: MaterialColor
     material: Material | null
     matches: Match[]
-    /** Swatch AFLEDT af den linkede Pantone-reference (kun visuel hjælp) — ingen hex lagres på folien. */
+    /**
+     * Swatch til visning. Autoritativ = materialefarvens egen `hex` (fx senere
+     * fra producentdata/SMU Source). Ellers VEJLEDENDE afledt af et Pantone-
+     * match — aldrig lagret på folien, aldrig materialets autoritative farve.
+     */
     swatchHex: string | null
+    /** true = swatch er kun vejledende visning via et Pantone-match. */
+    swatchAdvisory: boolean
   }[]
   /** Matches fundet via deres produktionskontekst (fx "Colorado"). */
   productions: { production: ProductionContext; match: MatchEnriched }[]
@@ -106,4 +114,9 @@ export interface FarveStore {
   pendingProposals(limit: number): Promise<MatchEnriched[]>
   listImportIssues(): Promise<ImportIssue[]>
   stats(): Promise<Stats>
+
+  // Historiske observationer (provenance/review-lag)
+  listObservations(filter?: { status?: ObservationStatus }): Promise<Observation[]>
+  getObservation(id: string): Promise<Observation | null>
+  updateObservation(id: string, patch: Partial<Observation>, user: CurrentUser): Promise<Observation>
 }
