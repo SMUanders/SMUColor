@@ -1,5 +1,10 @@
 # SMU Color — app-specifik CLAUDE.md
 
+> **SMU Platform.** Dette repo er en del af SMU Platform. Fælles platform-sandhed og sandhedshierarki ligger i
+> `smu-os-v2`'s Truth Reset-dokumenter (`PROJECT_OVERVIEW`/`DOMAIN_MODEL`/`DESIGNKATALOG`/`ROADMAP`/`NEXT_STEPS`/`PLANNING`),
+> `SMU_APP_STANDARD.md` og det globale Claude Code-lag. Ved konflikt vinder platformens sandhedshierarki.
+> Denne fil beskriver kun app-specifikke forhold.
+
 Internt farveopslags- og verifikationsværktøj for Signmeups tegnestue. Følger
 `SMU_APP_STANDARD.md` (roden) + `docs/SMU_DESIGN_SYSTEM.md`. Læs dem først.
 Afvigelser fra standarden er dokumenteret nederst.
