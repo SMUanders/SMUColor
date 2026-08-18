@@ -1,6 +1,6 @@
 // Ren søgelogik — ingen I/O, så den kan enhedstestes og genbruges af begge
 // data-adaptere. Prioriterer hurtige, forudsigelige træf for tegnestuen.
-import type { MaterialColor, ReferenceColor } from './types'
+import type { Material, MaterialColor, ProductionContext, ReferenceColor } from './types'
 
 export function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -50,8 +50,12 @@ export function scoreReference(ref: ReferenceColor, query: string): number {
   return 0
 }
 
-/** Score en materialefarve (Oracal/RAL) mod forespørgslen. */
-export function scoreMaterialColor(mc: MaterialColor, query: string): number {
+/**
+ * Score en materialefarve (Oracal/RAL) mod forespørgslen. Materialefamilien
+ * (producent/serie/navn, fx "Oracal 751") medtages, så "Oracal" og "751"
+ * finder foliens farver.
+ */
+export function scoreMaterialColor(mc: MaterialColor, query: string, material?: Material | null): number {
   const variants = expandSynonyms(query)
   let best = 0
   for (const q of variants) {
@@ -61,14 +65,40 @@ export function scoreMaterialColor(mc: MaterialColor, query: string): number {
     const navnC = compact(mc.navn ?? '')
     const ralC = compact(mc.ral_kode ?? '')
     const pantC = compact(mc.legacy_pantone_raw ?? '')
+    // Materialefamilie
+    const prodC = compact(material?.producent ?? '') // "oracal"
+    const serieC = compact(material?.serie ?? '') // "751"
+    const matNavnC = compact(material?.navn ?? '') // "oracal751"
 
     if (kodeC === qc) best = Math.max(best, 100)
     else if (ralC && (ralC === qc || compact('ral' + ralC) === qc)) best = Math.max(best, 92)
+    else if (serieC && serieC === qc) best = Math.max(best, 80) // "751"
     else if (kodeC.includes(qc) && qc.length >= 3) best = Math.max(best, 70)
     else if (navnC === qc) best = Math.max(best, 66)
+    else if (prodC && (prodC === qc || prodC.startsWith(qc)) && qc.length >= 2) best = Math.max(best, 64) // "oracal"
     else if (navnC.startsWith(qc) && qc.length >= 2) best = Math.max(best, 60)
+    else if (matNavnC.includes(qc) && qc.length >= 3) best = Math.max(best, 52) // "oracal751"
     else if (navnC.includes(qc) && qc.length >= 2) best = Math.max(best, 45)
     else if (pantC && pantC === qc) best = Math.max(best, 40)
+  }
+  return best
+}
+
+/**
+ * Score en produktionskontekst mod forespørgslen (printer, medie, printmode,
+ * profil, quick set) — fx "Colorado" → "Canon Colorado M-series".
+ */
+export function scoreProduction(prod: ProductionContext, query: string): number {
+  const qc = compact(normalize(query))
+  if (qc.length < 2) return 0
+  const fields = [prod.printer, prod.medie, prod.mediegruppe, prod.printmode, prod.profil, prod.quick_set]
+  let best = 0
+  for (const f of fields) {
+    if (!f) continue
+    const fc = compact(f)
+    if (fc === qc) best = Math.max(best, 90)
+    else if (fc.startsWith(qc)) best = Math.max(best, 72)
+    else if (fc.includes(qc)) best = Math.max(best, 60)
   }
   return best
 }

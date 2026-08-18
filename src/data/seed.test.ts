@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import references from './seed/reference-colors.json'
 import matches from './seed/matches.json'
 import issues from './seed/import-issues.json'
+import materials from './seed/materials.json'
 import materialColors from './seed/material-colors.json'
-import type { Match, ReferenceColor } from '../lib/types'
+import type { ReferenceColor } from '../lib/types'
 
 const refs = references as unknown as ReferenceColor[]
-const legacyMatches = matches as unknown as Match[]
 
 describe('Pantone reference-seed (C-anker + CP CMYK)', () => {
   it('indeholder 2390 spotfarver (Solid Coated)', () => {
@@ -32,28 +32,19 @@ describe('Pantone reference-seed (C-anker + CP CMYK)', () => {
   })
 })
 
-describe('Legacy-seed — reference ≠ verifikation', () => {
-  it('importerer INTET legacy-match som verificeret', () => {
-    expect(legacyMatches.every((m) => m.status === 'forslag')).toBe(true)
-    expect(legacyMatches.some((m) => m.status === 'verificeret')).toBe(false)
+describe('SMU-matchlaget starter tomt (legacy fjernet)', () => {
+  // Legacy fra Tegnestueplan2023.xlsx blev fjernet — tegnestuen bygger
+  // matchlaget fra bunden. Kun Pantone-referencen (read-only) er seedet.
+  it('ingen matches i seed', () => {
+    expect((matches as unknown[]).length).toBe(0)
   })
-  it('markerer legacy-referencen som antaget (ikke bekræftet)', () => {
-    expect(legacyMatches.every((m) => m.reference_antaget === true)).toBe(true)
+  it('ingen materialer i seed', () => {
+    expect((materials as unknown[]).length).toBe(0)
   })
-  it('bevarer sporbarhed til kildefil og række', () => {
-    expect(legacyMatches.every((m) => m.source === 'import_legacy' && m.source_file && m.source_row)).toBe(true)
+  it('ingen materialefarver i seed', () => {
+    expect((materialColors as unknown[]).length).toBe(0)
   })
-  it('har ingen verifikationsdata på forslag', () => {
-    expect(legacyMatches.every((m) => m.verified_at === null && m.verified_by === null)).toBe(true)
-  })
-})
-
-describe('Legacy-seed — tvetydige rækker logges', () => {
-  it('logger uopløste/tvetydige rækker i stedet for at gætte', () => {
-    expect((issues as unknown[]).length).toBeGreaterThan(0)
-  })
-  it('materialefarver bevarer det rå legacy-pantone-tal', () => {
-    const withRaw = (materialColors as { legacy_pantone_raw: string | null }[]).filter((c) => c.legacy_pantone_raw)
-    expect(withRaw.length).toBeGreaterThan(0)
+  it('ingen import-issues i seed', () => {
+    expect((issues as unknown[]).length).toBe(0)
   })
 })

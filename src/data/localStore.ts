@@ -12,7 +12,7 @@ import type {
   ReferenceColor,
   VerificationHistory,
 } from '../lib/types'
-import { scoreMaterialColor, scoreReference } from '../lib/search'
+import { scoreMaterialColor, scoreProduction, scoreReference } from '../lib/search'
 import type {
   CreateMatchInput,
   CreateMaterialColorInput,
@@ -112,7 +112,7 @@ export class LocalStore implements FarveStore {
   async search(query: string): Promise<SearchResult> {
     await this.ready
     const q = query.trim()
-    if (!q) return { references: [], materialColors: [] }
+    if (!q) return { references: [], materialColors: [], productions: [] }
 
     const refs = this.references
       .map((ref) => ({ ref, score: scoreReference(ref, q) }))
@@ -124,19 +124,34 @@ export class LocalStore implements FarveStore {
         return { ref, matchCount: ms.length, statuses: [...new Set(ms.map((m) => m.status))] }
       })
 
+    const materialOf = (mc: MaterialColor) =>
+      this.data.materials.find((x) => x.id === mc.material_id) ?? null
+
     const mcs = this.data.materialColors
       .filter((c) => !c.slettet)
-      .map((mc) => ({ mc, score: scoreMaterialColor(mc, q) }))
+      .map((mc) => ({ mc, score: scoreMaterialColor(mc, q, materialOf(mc)) }))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score || a.mc.kode.localeCompare(b.mc.kode))
       .slice(0, 40)
-      .map(({ mc }) => ({
-        mc,
-        material: this.data.materials.find((x) => x.id === mc.material_id) ?? null,
-        matches: this.liveMatches().filter((m) => m.material_color_id === mc.id),
-      }))
+      .map(({ mc }) => {
+        const matches = this.liveMatches().filter((m) => m.material_color_id === mc.id)
+        const refMatch = matches.find((m) => m.reference_color_id)
+        const swatchHex = refMatch?.reference_color_id
+          ? this.references.find((r) => r.id === refMatch.reference_color_id)?.hex ?? null
+          : null
+        return { mc, material: materialOf(mc), matches, swatchHex }
+      })
 
-    return { references: refs, materialColors: mcs }
+    const liveMatchIds = new Set(this.liveMatches().map((m) => m.id))
+    const productions = this.data.production
+      .filter((p) => !p.slettet && liveMatchIds.has(p.match_id))
+      .map((p) => ({ p, score: scoreProduction(p, q) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(({ p }) => ({ production: p, match: this.enrich(this.data.matches.find((m) => m.id === p.match_id)!) }))
+
+    return { references: refs, materialColors: mcs, productions }
   }
 
   async getReference(id: string): Promise<ReferenceColor | null> {

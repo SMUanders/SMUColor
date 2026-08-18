@@ -12,7 +12,7 @@ import type {
   ReferenceColor,
   VerificationHistory,
 } from '../lib/types'
-import { scoreMaterialColor, scoreReference } from '../lib/search'
+import { scoreMaterialColor, scoreProduction, scoreReference } from '../lib/search'
 import type {
   CreateMatchInput,
   CreateMaterialColorInput,
@@ -74,29 +74,19 @@ export class SupabaseStore implements FarveStore {
 
   async search(query: string): Promise<SearchResult> {
     const q = query.trim()
-    if (!q) return { references: [], materialColors: [] }
+    if (!q) return { references: [], materialColors: [], productions: [] }
     const like = `%${q.replace(/[%_]/g, '')}%`
 
-    const [refRes, mcRes] = await Promise.all([
-      this.sb
-        .from(T.ref)
-        .select('*')
-        .or(`pantone_name.ilike.${like},cp_name.ilike.${like},pantone_code.ilike.${like}`)
-        .limit(120),
-      this.sb
-        .from(T.mc)
-        .select('*')
-        .eq('slettet', false)
-        .or(`kode.ilike.${like},navn.ilike.${like},ral_kode.ilike.${like},legacy_pantone_raw.ilike.${like}`)
-        .limit(120),
-    ])
-
-    const refCandidates = (refRes.data as ReferenceColor[] | null) ?? []
-    const refs = refCandidates
+    // --- Referencer (Pantone) ---
+    const refRes = await this.sb
+      .from(T.ref)
+      .select('*')
+      .or(`pantone_name.ilike.${like},cp_name.ilike.${like},pantone_code.ilike.${like}`)
+      .limit(120)
+    const refs = ((refRes.data as ReferenceColor[] | null) ?? [])
       .map((ref) => ({ ref, score: scoreReference(ref, q) || 1 }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 40)
-
     const refIds = refs.map((r) => r.ref.id)
     const matchAgg = refIds.length
       ? await this.sb.from(T.matches).select('reference_color_id,status').in('reference_color_id', refIds).eq('slettet', false)
@@ -108,35 +98,80 @@ export class SupabaseStore implements FarveStore {
       aggMap.set(row.reference_color_id, arr)
     }
 
-    const mcCandidates = (mcRes.data as MaterialColor[] | null) ?? []
+    // --- Materialefamilier der matcher (fx "Oracal", "751") → deres farver ---
+    const matHit = await this.sb
+      .from(T.materials)
+      .select('id')
+      .eq('slettet', false)
+      .or(`producent.ilike.${like},serie.ilike.${like},navn.ilike.${like}`)
+      .limit(50)
+    const hitMatIds = ((matHit.data as { id: string }[] | null) ?? []).map((m) => m.id)
+
+    // --- Materialefarver: egne felter ELLER via parent-materiale ---
+    const [mcOwn, mcByMat] = await Promise.all([
+      this.sb.from(T.mc).select('*').eq('slettet', false).or(`kode.ilike.${like},navn.ilike.${like},ral_kode.ilike.${like},legacy_pantone_raw.ilike.${like}`).limit(120),
+      hitMatIds.length ? this.sb.from(T.mc).select('*').eq('slettet', false).in('material_id', hitMatIds).limit(120) : Promise.resolve({ data: [] }),
+    ])
+    const mcById = new Map<string, MaterialColor>()
+    for (const c of [...((mcOwn.data as MaterialColor[] | null) ?? []), ...((mcByMat.data as MaterialColor[] | null) ?? [])]) mcById.set(c.id, c)
+    const mcCandidates = [...mcById.values()]
+    const matIds = [...new Set(mcCandidates.map((c) => c.material_id).filter(Boolean))] as string[]
+    const mats = matIds.length ? await this.sb.from(T.materials).select('*').in('id', matIds) : { data: [] }
+    const matMap = new Map(((mats.data as Material[] | null) ?? []).map((m) => [m.id, m]))
+
     const mcScored = mcCandidates
-      .map((mc) => ({ mc, score: scoreMaterialColor(mc, q) || 1 }))
+      .map((mc) => ({ mc, score: scoreMaterialColor(mc, q, mc.material_id ? matMap.get(mc.material_id) ?? null : null) || 1 }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 40)
     const mcIds = mcScored.map((x) => x.mc.id)
-    const matIds = [...new Set(mcScored.map((x) => x.mc.material_id).filter(Boolean))] as string[]
-    const [mcMatches, mats] = await Promise.all([
-      mcIds.length ? this.sb.from(T.matches).select('*').in('material_color_id', mcIds).eq('slettet', false) : Promise.resolve({ data: [] }),
-      matIds.length ? this.sb.from(T.materials).select('*').in('id', matIds) : Promise.resolve({ data: [] }),
-    ])
-    const matMap = new Map(((mats.data as Material[] | null) ?? []).map((m) => [m.id, m]))
+    const mcMatches = mcIds.length ? await this.sb.from(T.matches).select('*').in('material_color_id', mcIds).eq('slettet', false) : { data: [] }
     const mcMatchMap = new Map<string, Match[]>()
     for (const m of ((mcMatches.data as Match[] | null) ?? [])) {
       const arr = mcMatchMap.get(m.material_color_id as string) ?? []
       arr.push(m)
       mcMatchMap.set(m.material_color_id as string, arr)
     }
+    // Swatch afledt af de linkede Pantone-referencer (single source)
+    const folieRefIds = [...new Set([...mcMatchMap.values()].flat().map((m) => m.reference_color_id).filter(Boolean))] as string[]
+    const folieRefs = folieRefIds.length ? await this.sb.from(T.ref).select('id,hex').in('id', folieRefIds) : { data: [] }
+    const refHex = new Map(((folieRefs.data as { id: string; hex: string }[] | null) ?? []).map((r) => [r.id, r.hex]))
+
+    // --- Produktion (fx "Colorado") ---
+    const prodRes = await this.sb
+      .from(T.production)
+      .select('*')
+      .eq('slettet', false)
+      .or(`printer.ilike.${like},medie.ilike.${like},mediegruppe.ilike.${like},printmode.ilike.${like},profil.ilike.${like},quick_set.ilike.${like}`)
+      .limit(40)
+    const prodCands = ((prodRes.data as ProductionContext[] | null) ?? [])
+      .map((p) => ({ p, score: scoreProduction(p, q) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+    const prodMatchIds = [...new Set(prodCands.map((x) => x.p.match_id))]
+    const prodMatches = prodMatchIds.length ? await this.sb.from(T.matches).select('*').in('id', prodMatchIds).eq('slettet', false) : { data: [] }
+    const prodEnriched = await this.enrich((prodMatches.data as Match[] | null) ?? [])
+    const prodMatchMap = new Map(prodEnriched.map((m) => [m.id, m]))
+    const productions = prodCands
+      .filter((x) => prodMatchMap.has(x.p.match_id))
+      .map((x) => ({ production: x.p, match: prodMatchMap.get(x.p.match_id)! }))
 
     return {
       references: refs.map(({ ref }) => {
         const statuses = aggMap.get(ref.id) ?? []
         return { ref, matchCount: statuses.length, statuses: [...new Set(statuses)] }
       }),
-      materialColors: mcScored.map(({ mc }) => ({
-        mc,
-        material: mc.material_id ? matMap.get(mc.material_id) ?? null : null,
-        matches: mcMatchMap.get(mc.id) ?? [],
-      })),
+      materialColors: mcScored.map(({ mc }) => {
+        const matches = mcMatchMap.get(mc.id) ?? []
+        const refMatch = matches.find((m) => m.reference_color_id)
+        return {
+          mc,
+          material: mc.material_id ? matMap.get(mc.material_id) ?? null : null,
+          matches,
+          swatchHex: refMatch?.reference_color_id ? refHex.get(refMatch.reference_color_id) ?? null : null,
+        }
+      }),
+      productions,
     }
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2, CircleDashed, Layers, Search, X } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Layers, Printer, Search, X } from 'lucide-react'
 import { getStore } from '../data'
 import type { SearchResult } from '../data/store'
 import type { MatchEnriched, MatchStatus } from '../lib/types'
@@ -41,7 +41,8 @@ export default function Home() {
     return () => clearTimeout(t)
   }, [query, store])
 
-  const hasResults = result && (result.references.length > 0 || result.materialColors.length > 0)
+  const hasResults =
+    result && (result.references.length > 0 || result.materialColors.length > 0 || result.productions.length > 0)
 
   return (
     <div>
@@ -129,7 +130,7 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
         <section>
           <SectionTitle>Materialefarver (folie / RAL)</SectionTitle>
           <div className="smu-card" style={{ overflow: 'hidden' }}>
-            {result.materialColors.map(({ mc, material, matches }, i) => {
+            {result.materialColors.map(({ mc, material, matches, swatchHex }, i) => {
               const withRef = matches.find((m) => m.reference_color_id)
               const clickable = Boolean(withRef?.reference_color_id)
               return (
@@ -139,9 +140,14 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
                   onClick={() => withRef?.reference_color_id && onOpenRef(withRef.reference_color_id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: clickable ? 'pointer' : 'default' }}
                 >
-                  <span style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--color-grey-soft)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                    <Layers size={20} style={{ color: 'var(--color-grey-deep)' }} />
-                  </span>
+                  {/* Swatch afledt af linket Pantone (kun visuel hjælp); neutral hvis intet match */}
+                  {swatchHex ? (
+                    <Swatch hex={swatchHex} size={46} />
+                  ) : (
+                    <span style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--color-grey-soft)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Layers size={20} style={{ color: 'var(--color-grey-deep)' }} />
+                    </span>
+                  )}
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>
                       {material?.navn ? `${material.navn} ` : ''}{mc.kode}
@@ -151,6 +157,7 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
                       {mc.ral_kode && `RAL ${mc.ral_kode} · `}
                       {mc.legacy_pantone_raw && `Pantone ${mc.legacy_pantone_raw} (legacy) · `}
                       {matches.length} match{matches.length === 1 ? '' : 'es'}
+                      {swatchHex && ' · farve vejledende fra Pantone'}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -161,6 +168,38 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {result.productions.length > 0 && (
+        <section>
+          <SectionTitle>Produktionsmatches</SectionTitle>
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {result.productions.map(({ production, match }, i) => (
+              <Link
+                key={production.id}
+                to={match.reference_color_id ? `/farve/${match.reference_color_id}` : `/match/${match.id}`}
+                className="smu-clickable"
+                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', textDecoration: 'none', color: 'inherit', borderTop: i ? '1px solid var(--color-border-soft)' : undefined }}
+              >
+                <span style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--color-navy-soft)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Printer size={20} color="#fff" />
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>{production.printer ?? 'Produktionsmatch'}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                    {[
+                      match.reference?.pantone_name,
+                      match.materialColor ? `${match.material?.navn ?? ''} ${match.materialColor.kode}`.trim() : null,
+                      production.medie,
+                      production.printmode,
+                    ].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <StatusBadge status={match.status} />
+              </Link>
+            ))}
           </div>
         </section>
       )}

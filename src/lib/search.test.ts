@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { expandSynonyms, scoreMaterialColor, scoreReference } from './search'
-import type { MaterialColor, ReferenceColor } from './types'
+import { expandSynonyms, scoreMaterialColor, scoreProduction, scoreReference } from './search'
+import type { Material, MaterialColor, ProductionContext, ReferenceColor } from './types'
+
+function mat(partial: Partial<Material>): Material {
+  return {
+    id: 'm', kind: 'folie', producent: 'Oracal', serie: '751', navn: 'Oracal 751', anvendelse: null,
+    bredde: null, holdbarhed: null, anbefalet_laminat: null, note: null, source_file: null,
+    source_sheet: null, source_row: null, source_value_raw: null, slettet: false, ...partial,
+  }
+}
+
+function prod(partial: Partial<ProductionContext>): ProductionContext {
+  return {
+    id: 'p', match_id: 'x', printer: 'Canon Colorado M-series', blaekset: null, mediegruppe: null,
+    medie: null, printmode: null, profil: null, quick_set: null, outputopskrift: null, note: null,
+    slettet: false, ...partial,
+  }
+}
 
 function ref(partial: Partial<ReferenceColor>): ReferenceColor {
   return {
@@ -56,6 +72,27 @@ describe('scoreMaterialColor', () => {
   })
   it('matcher dansk farvenavn via synonym', () => {
     expect(scoreMaterialColor(mc({ navn: 'red' }), 'rød')).toBeGreaterThan(0)
+  })
+  it('matcher materialefamilien "Oracal" via parent-materiale', () => {
+    expect(scoreMaterialColor(mc({}), 'Oracal', mat({}))).toBeGreaterThan(0)
+    // uden materiale matcher "Oracal" ikke en farve hvis nav(fx "red") ikke indeholder det
+    expect(scoreMaterialColor(mc({ navn: 'red' }), 'Oracal', null)).toBe(0)
+  })
+  it('matcher serie "751" via kode og parent-serie', () => {
+    expect(scoreMaterialColor(mc({}), '751', mat({}))).toBeGreaterThan(0)
+  })
+})
+
+describe('scoreProduction', () => {
+  it('matcher "Colorado" i printer-navnet', () => {
+    expect(scoreProduction(prod({}), 'Colorado')).toBeGreaterThan(0)
+    expect(scoreProduction(prod({}), 'canon')).toBeGreaterThan(0)
+  })
+  it('matcher medie/printmode', () => {
+    expect(scoreProduction(prod({ medie: 'IJM255' }), 'IJM255')).toBeGreaterThan(0)
+  })
+  it('giver 0 ved intet træf', () => {
+    expect(scoreProduction(prod({}), 'zzz')).toBe(0)
   })
 })
 

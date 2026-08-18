@@ -18,7 +18,15 @@ import type {
 
 export interface SearchResult {
   references: { ref: ReferenceColor; matchCount: number; statuses: MatchStatus[] }[]
-  materialColors: { mc: MaterialColor; material: Material | null; matches: Match[] }[]
+  materialColors: {
+    mc: MaterialColor
+    material: Material | null
+    matches: Match[]
+    /** Swatch AFLEDT af den linkede Pantone-reference (kun visuel hjælp) — ingen hex lagres på folien. */
+    swatchHex: string | null
+  }[]
+  /** Matches fundet via deres produktionskontekst (fx "Colorado"). */
+  productions: { production: ProductionContext; match: MatchEnriched }[]
 }
 
 export interface CreateMatchInput {
