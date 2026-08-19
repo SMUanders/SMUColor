@@ -181,12 +181,24 @@ export interface Observation {
   source_page: string | null
   source_location: string | null
   document_type: string | null
+  source_dataset: string | null
+  source_row_number: number | null
+  source_value_class: string | null
   job_context: string | null
+  customer_as_written: string | null
+  job_name_as_written: string | null
+  order_reference_as_written: string | null
+  job_reference_as_written: string | null
+  brand_as_written: string | null
+  context_evidence_as_written: string | null
   printer_as_written: string | null
   media_group_as_written: string | null
+  manufacturer_as_written: string | null
   material_as_written: string | null
+  material_code_as_written: string | null
   profile_or_print_mode_as_written: string | null
   pantone_as_written: string | null
+  ral_as_written: string | null
   internal_code_as_written: string | null
   numeric_string_as_written: string | null
   handwritten_as_written: string | null

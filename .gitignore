@@ -40,3 +40,12 @@ kilder/Tegnestueplan2023.xlsx
 
 # Local Netlify folder
 .netlify
+
+# Manus historisk kildemateriale (internt, PII — holdes ude af git)
+kilder/*.pdf
+kilder/historiske_farveobservationer_master_enriched.csv
+kilder/historiske_farveobservationer_master_enriched.json
+kilder/mulige_normaliseringer.csv
+kilder/mulige_sammenhaenge.csv
+kilder/top20_menneskelig_review.csv
+kilder/kunde_job_supplement_audit.csv

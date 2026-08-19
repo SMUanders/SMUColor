@@ -10,15 +10,29 @@ import { OBS_STATUS_META } from '../lib/observationStatus'
 // Rå transskriptionsfelter (redigerbare). Originaltekst rettes her — normalisering
 // er et review-resultat, ikke en overskrivning af andre lag.
 const RAW_FIELDS: { key: keyof Observation; label: string }[] = [
-  { key: 'pantone_as_written', label: 'Pantone (som skrevet)' },
+  // Reference som skrevet
+  { key: 'pantone_as_written', label: 'Pantone/PMS (som skrevet)' },
+  { key: 'ral_as_written', label: 'RAL (som skrevet)' },
   { key: 'internal_code_as_written', label: 'Intern kode (som skrevet)' },
   { key: 'numeric_string_as_written', label: 'Trykte/etiket-tal (som skrevet)' },
   { key: 'handwritten_as_written', label: 'Håndskrevet (rå — ikke tolket)' },
   { key: 'color_name_as_written', label: 'Farvenavn (som skrevet)' },
+  // Materiale/producent (rå historisk kontekst — ikke materialemaster)
+  { key: 'manufacturer_as_written', label: 'Producent (som skrevet)' },
+  { key: 'material_as_written', label: 'Materiale (som skrevet)' },
+  { key: 'material_code_as_written', label: 'Materialekode (som skrevet)' },
+  // Produktion
   { key: 'printer_as_written', label: 'Printer (som skrevet)' },
   { key: 'media_group_as_written', label: 'Mediegruppe (som skrevet)' },
-  { key: 'material_as_written', label: 'Materiale (som skrevet)' },
   { key: 'profile_or_print_mode_as_written', label: 'Profil/printmode (som skrevet)' },
+  // Kunde/job/brand (historisk kontekst — ikke kundemaster)
+  { key: 'customer_as_written', label: 'Kunde (som skrevet)' },
+  { key: 'job_name_as_written', label: 'Jobnavn (som skrevet)' },
+  { key: 'order_reference_as_written', label: 'Ordre-reference (som skrevet)' },
+  { key: 'job_reference_as_written', label: 'Job-reference (som skrevet)' },
+  { key: 'brand_as_written', label: 'Brand (som skrevet)' },
+  { key: 'context_evidence_as_written', label: 'Kontekst-evidens (rå)' },
+  // Fysisk / vurdering
   { key: 'physical_material_as_written', label: 'Fysisk materiale (som skrevet)' },
   { key: 'result_marking_as_written', label: 'Resultatmarkering (som skrevet)' },
   { key: 'assessment_signal_as_written', label: 'Vurderingssignal (rå, fx flueben)' },
@@ -98,6 +112,9 @@ export default function ObservationReview() {
           <Row label="Side" value={obs.source_page} />
           <Row label="Placering" value={obs.source_location} />
           <Row label="Dokumenttype" value={obs.document_type} />
+          <Row label="Datasæt" value={obs.source_dataset} />
+          <Row label="Master-rækkenr." value={obs.source_row_number != null ? String(obs.source_row_number) : null} />
+          <Row label="Klasse (A/B/C)" value={obs.source_value_class} />
           <Row label="Jobkontekst" value={obs.job_context} />
           <Row label="Prøve til stede" value={obs.sample_present ? 'Ja' : 'Nej'} />
           <Row label="AI-sikkerhed (per aspekt)" value={obs.confidence_notes ?? (obs.confidence != null ? `${Math.round(obs.confidence * 100)}%` : '—')} />

@@ -24,13 +24,26 @@ create table if not exists farve_observations (
   source_page       text,
   source_location   text,
   document_type     text,
-  job_context       text,
+  source_dataset    text,                        -- Manus-datasæt/batch (fx "batch 3")
+  source_row_number integer,                     -- rækkenummer i master-CSV/JSON
+  source_value_class text,                       -- Manus-klasse: A / B / C
+  -- Kunde/job/brand-kontekst (RÅ historisk kontekst — IKKE kundemaster)
+  job_context       text,                        -- generel jobkontekst (fri tekst)
+  customer_as_written        text,
+  job_name_as_written        text,
+  order_reference_as_written text,
+  job_reference_as_written   text,
+  brand_as_written           text,
+  context_evidence_as_written text,              -- rå tekst der understøtter kontekst-tolkningen
   -- Rå transskription (originaltekst bevaret — må ikke normaliseres i disse felter)
   printer_as_written                text,
   media_group_as_written            text,
+  manufacturer_as_written           text,   -- producent som skrevet (≠ materialemaster)
   material_as_written               text,
+  material_code_as_written          text,   -- materialekode som skrevet (fx "3551", "751-031")
   profile_or_print_mode_as_written  text,
-  pantone_as_written                text,
+  pantone_as_written                text,   -- Pantone/PMS som skrevet (≠ normaliseret reference)
+  ral_as_written                    text,   -- RAL som skrevet (≠ normaliseret reference)
   internal_code_as_written          text,
   numeric_string_as_written         text,   -- trykte/etiket-tal (som skrevet)
   handwritten_as_written            text,   -- håndskrevne tal/tekst (rå, ALDRIG auto-tolket)
