@@ -4,6 +4,8 @@ import { FileSearch, LayoutList, LogOut, Search } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getStore } from '../data'
 import { BrandMark } from './BrandMark'
+import { supabase } from '../lib/supabase'
+import { AppSwitcher } from '../platform-nav/AppSwitcher'
 
 function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   return (
@@ -49,6 +51,9 @@ export function Layout() {
           </nav>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Diskret skift til Hub og brugerens øvrige SMU-apps.
+                Kræver den delte Supabase-klient; i lokal dev uden nøgler er den null. */}
+            {supabase && <AppSwitcher supabase={supabase} currentAppKey="color" />}
             {store.mode === 'local' && (
               <span className="smu-badge smu-badge-orange" title="Kører uden Supabase — data gemmes kun lokalt i browseren.">
                 Lokal dev
