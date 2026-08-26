@@ -21,7 +21,8 @@
  * `maalUrl` = godkendt målmodel (<app>.smu.signmeup.dk). Dokumentation, ikke live-sandhed.
  *             Udeladt for apps uden besluttet subdomæne — den gættes aldrig.
  * Cutover og live-verificeret 20. aug. 2026: Hub (smu.signmeup.dk), OS (os.smu.signmeup.dk),
- * APV (apv.smu.signmeup.dk) og Wiki (wiki.smu.signmeup.dk); 21. aug. 2026: MUS (mus.smu.signmeup.dk).
+ * APV (apv.smu.signmeup.dk) og Wiki (wiki.smu.signmeup.dk); 21. aug. 2026: MUS (mus.smu.signmeup.dk);
+ * 26. aug. 2026: Arkiv (arkiv.smu.signmeup.dk).
  * Tid, Color og Source kører fortsat på Netlify, og den delte cookie-session (SSO) virker KUN på
  * *.smu.signmeup.dk — så et hop til en netlify.app-adresse kan kræve nyt login.
  */
@@ -161,14 +162,21 @@ export const PLATFORM_APPS: Record<string, AppMeta> = {
   },
   arkiv: {
     key: 'arkiv',
-    appKey: null, // ingen app-key/roller i databasen — oprettes ikke her
+    appKey: 'arkiv', // app-key + roller (observatoer/bruger/admin) er live i databasen
     displayName: 'SMU Arkiv',
-    description: 'Arkiv og dokumentadgang',
-    url: null, // ingen verificeret adresse — gættes ikke
-    icon: PAA_VEJ_IKON, // ingen officiel identitet endnu
+    description: 'Historik og dokumentation',
+    // Read-only medarbejderpilot. Cutover gennemført: fælles session (SSO)
+    // live-verificeret 26. aug. 2026 — login i Hub åbner Arkiv uden nyt login.
+    // Tidligere adresse https://smu-arkiv.netlify.app svarer stadig, men er legacy —
+    // den deler ikke platform-cookien og må ikke linkes fra Hub/AppSwitcher.
+    url: 'https://arkiv.smu.signmeup.dk',
+    maalUrl: 'https://arkiv.smu.signmeup.dk',
+    icon: '/icons/apps/smu-arkiv.svg', // Arkivs egen identitet (arkivboks-glyph)
     sortOrder: 70,
-    status: 'paa_vej',
-    synlighed: 'discoverable',
+    // frigivet = klikbart for brugere MED adgang; privat = kun synlig for dem.
+    // Adgangen er bevidst begrænset (kun pilot-observatører + admin) via app_adgange.
+    status: 'frigivet',
+    synlighed: 'privat',
   },
   esg: {
     key: 'esg',
