@@ -6,6 +6,7 @@ import { getStore } from '../data'
 import { BrandMark } from './BrandMark'
 import { supabase } from '../lib/supabase'
 import { AppSwitcher } from '../platform-nav/AppSwitcher'
+import { appProductVersion } from '../lib/version'
 
 function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   return (
@@ -50,6 +51,13 @@ export function Layout() {
           </nav>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Diskret produktversion. Kilde: package.json (se lib/version.ts). */}
+            <span
+              className="hidden sm:inline text-[11px] font-semibold tabular-nums"
+              style={{ color: 'rgba(255,255,255,0.45)' }}
+            >
+              {appProductVersion()}
+            </span>
             {/* Diskret skift til Hub og brugerens øvrige SMU-apps.
                 Kræver den delte Supabase-klient; i lokal dev uden nøgler er den null. */}
             {supabase && <AppSwitcher supabase={supabase} currentAppKey="color" />}
