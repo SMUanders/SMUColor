@@ -4,11 +4,24 @@ import { CheckCircle2, Layers, Palette, Plus, Search, X } from 'lucide-react'
 import { getStore } from '../data'
 import { useAuth } from '../context/AuthContext'
 import type { SearchResult, Stats } from '../data/store'
-import type { MatchEnriched, MatchStatus } from '../lib/types'
+import type { FarveValg, MatchEnriched, MatchStatus, SourceFolie } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { StatusBadge } from '../components/StatusBadge'
+import { FarveValgRow } from '../components/FarveValgRow'
 import { EmptyState, SectionTitle, Spinner } from '../components/common'
 import { STATUS_ORDER } from '../lib/status'
+
+function folieToValg(f: SourceFolie): FarveValg {
+  return {
+    kind: 'source',
+    refId: f.source_variant_id,
+    titel: `${f.producent ?? ''} ${f.serie ?? ''} ${f.kode}`.replace(/\s+/g, ' ').trim(),
+    undertekst: f.producent_farvenavn ?? f.variant_navn,
+    hex: f.digital_srgb,
+    vejledende: true,
+    aktiv: f.aktiv,
+  }
+}
 
 function orderStatuses(statuses: MatchStatus[]): MatchStatus[] {
   return STATUS_ORDER.filter((s) => statuses.includes(s))
@@ -19,6 +32,7 @@ export default function Home() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<SearchResult | null>(null)
+  const [folier, setFolier] = useState<SourceFolie[]>([])
   const [searching, setSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -30,19 +44,21 @@ export default function Home() {
     const q = query.trim()
     if (!q) {
       setResult(null)
+      setFolier([])
       setSearching(false)
       return
     }
     setSearching(true)
     const t = setTimeout(async () => {
-      const r = await store.search(q)
+      const [r, f] = await Promise.all([store.search(q), store.searchSourceFolie(q)])
       setResult(r)
+      setFolier(f)
       setSearching(false)
     }, 140)
     return () => clearTimeout(t)
   }, [query, store])
 
-  const hasResults = result && (result.references.length > 0 || result.materialColors.length > 0)
+  const hasResults = Boolean(result && (result.references.length > 0 || result.materialColors.length > 0 || folier.length > 0))
 
   return (
     <div>
@@ -83,7 +99,14 @@ export default function Home() {
           </EmptyState>
         )}
 
-        {result && hasResults && <Results result={result} onOpenRef={(id) => navigate(`/farve/${id}`)} />}
+        {result && hasResults && (
+          <Results
+            result={result}
+            folier={folier}
+            onOpenRef={(id) => navigate(`/farve/${id}`)}
+            onOpenFolie={(id) => navigate(`/folie/${id}`)}
+          />
+        )}
 
         {!query.trim() && <HomeOverview />}
       </div>
@@ -91,9 +114,30 @@ export default function Home() {
   )
 }
 
-function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: string) => void }) {
+function Results({
+  result,
+  folier,
+  onOpenRef,
+  onOpenFolie,
+}: {
+  result: SearchResult
+  folier: SourceFolie[]
+  onOpenRef: (id: string) => void
+  onOpenFolie: (id: string) => void
+}) {
   return (
     <div style={{ display: 'grid', gap: 22 }}>
+      {folier.length > 0 && (
+        <section>
+          <SectionTitle>Folier (Source)</SectionTitle>
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {folier.map((f, i) => (
+              <FarveValgRow key={f.source_variant_id} valg={folieToValg(f)} border={i > 0} onClick={() => onOpenFolie(f.source_variant_id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {result.references.length > 0 && (
         <section>
           <SectionTitle>Referencefarver (Color Bridge)</SectionTitle>
@@ -194,13 +238,20 @@ function HomeOverview() {
 
       {/* Primær handling — kun for redaktører (skriveret). */}
       {canEdit && (
-        <div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link
-            to="/match/ny"
+            to="/relation/ny"
             className="smu-btn-primary"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}
           >
-            <Plus size={16} /> Opret farvematch
+            <Plus size={16} /> Opret farverelation
+          </Link>
+          <Link
+            to="/match/ny"
+            className="smu-btn-secondary"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+          >
+            Opret match (Pantone)
           </Link>
         </div>
       )}

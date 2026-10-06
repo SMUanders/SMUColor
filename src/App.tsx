@@ -5,6 +5,8 @@ import { Spinner } from './components/common'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import ColorDetail from './pages/ColorDetail'
+import FolieDetail from './pages/FolieDetail'
+import RelationNy from './pages/RelationNy'
 import MatchDetail from './pages/MatchDetail'
 import MatchEdit from './pages/MatchEdit'
 import Admin from './pages/Admin'
@@ -35,6 +37,16 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="/farve/:refId" element={<ColorDetail />} />
+        {/* V1.2 — palette-neutralt flow */}
+        <Route path="/folie/:variantId" element={<FolieDetail />} />
+        <Route
+          path="/relation/ny"
+          element={
+            <RequireRedaktoer>
+              <RelationNy />
+            </RequireRedaktoer>
+          }
+        />
         <Route
           path="/match/ny"
           element={

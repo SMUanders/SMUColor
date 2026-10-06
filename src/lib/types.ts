@@ -170,3 +170,50 @@ export interface CurrentUser {
   navn: string
   erRedaktoer: boolean
 }
+
+// ── V1.2: palette-neutral knude/relation-model ──────────────────────────────
+export type NodeType = 'pantone' | 'source' | 'lokal'
+
+/**
+ * Source-foliefarve læst via kontrakten (farve_source_foliefarver).
+ * ALDRIG kopieret eller lagret i Color — kun vist/valgt.
+ */
+export interface SourceFolie {
+  source_variant_id: string
+  producent: string | null
+  serie: string | null
+  produkt_navn: string | null
+  kode: string
+  variant_navn: string | null
+  farvegruppe: string | null
+  finish: string | null
+  aktiv: boolean
+  producent_farvenavn: string | null
+  digital_srgb: string | null
+  digital_lab: string | null
+  har_digital_farve: boolean
+  digital_vejledende: boolean
+}
+
+/** En farve til visning/valg i V1.2 (uanset palette). */
+export interface FarveValg {
+  kind: NodeType
+  /** Stabil kilde-id: pantone→reference_color_id · source→source_variant_id · lokal→material_color_id */
+  refId: string
+  titel: string
+  undertekst?: string | null
+  hex?: string | null
+  /** true = hex er en VEJLEDENDE producentfarve (ikke fysisk sandhed). */
+  vejledende?: boolean
+  /** source: false = udgået (må vises, men ikke vælges til nye relationer). */
+  aktiv?: boolean
+}
+
+/** En relation set fra en bestemt farve — modparten vises. */
+export interface RelationView {
+  id: string
+  status: MatchStatus
+  note: string | null
+  created_at: string
+  modpart: FarveValg
+}

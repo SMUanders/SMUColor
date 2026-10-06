@@ -2,16 +2,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   CurrentUser,
+  FarveValg,
   ImportIssue,
   Match,
   MatchEnriched,
   MatchStatus,
   Material,
   MaterialColor,
+  NodeType,
   ProductionContext,
   ReferenceColor,
+  RelationView,
+  SourceFolie,
   VerificationHistory,
 } from '../lib/types'
+
+interface NodeRow {
+  id: string
+  type: NodeType
+  reference_color_id: string | null
+  source_variant_id: string | null
+  material_color_id: string | null
+}
+const NODE_COL: Record<NodeType, 'reference_color_id' | 'source_variant_id' | 'material_color_id'> = {
+  pantone: 'reference_color_id',
+  source: 'source_variant_id',
+  lokal: 'material_color_id',
+}
 import { scoreMaterialColor, scoreReference } from '../lib/search'
 import type {
   CreateMatchInput,
@@ -320,5 +337,98 @@ export class SupabaseStore implements FarveStore {
       this.sb.from(T.issues).select('*', { count: 'exact', head: true }).eq('resolved', false).then((r) => r.count ?? 0),
     ])
     return { referenceCount: refCount, matchCount, forslag, under_test, verificeret, afvist, issuesOpen: issues }
+  }
+
+  // ── V1.2: Source folie + knuder/relationer ──────────────────────────────
+
+  async searchSourceFolie(query: string): Promise<SourceFolie[]> {
+    const q = query.trim()
+    if (!q) return []
+    const { data, error } = await this.sb.rpc('farve_source_foliefarver', { _soeg: q, _variant_id: null, _limit: 40 })
+    if (error) return []
+    return (data as SourceFolie[]) ?? []
+  }
+
+  async getSourceFolie(variantId: string): Promise<SourceFolie | null> {
+    const { data, error } = await this.sb.rpc('farve_source_foliefarver', { _soeg: null, _variant_id: variantId, _limit: 1 })
+    if (error) return null
+    return ((data as SourceFolie[] | null)?.[0]) ?? null
+  }
+
+  private async nodeToFarveValg(node: NodeRow): Promise<FarveValg> {
+    if (node.type === 'pantone' && node.reference_color_id) {
+      const ref = await this.getReference(node.reference_color_id)
+      return { kind: 'pantone', refId: node.reference_color_id, titel: ref?.pantone_name ?? 'Pantone', undertekst: ref?.cp_name ?? null, hex: ref?.hex ?? null, vejledende: false, aktiv: true }
+    }
+    if (node.type === 'source' && node.source_variant_id) {
+      const f = await this.getSourceFolie(node.source_variant_id)
+      return { kind: 'source', refId: node.source_variant_id, titel: f ? `${f.producent ?? ''} ${f.serie ?? ''} ${f.kode}`.replace(/\s+/g, ' ').trim() : 'Source-folie', undertekst: f?.producent_farvenavn ?? f?.variant_navn ?? null, hex: f?.digital_srgb ?? null, vejledende: true, aktiv: f?.aktiv ?? false }
+    }
+    if (node.material_color_id) {
+      const { data } = await this.sb.from(T.mc).select('*').eq('id', node.material_color_id).maybeSingle()
+      const mc = data as MaterialColor | null
+      return { kind: 'lokal', refId: node.material_color_id, titel: mc?.kode ?? 'Lokal', undertekst: mc?.navn ?? (mc?.ral_kode ? `RAL ${mc.ral_kode}` : null), hex: mc?.hex ?? null, vejledende: false, aktiv: true }
+    }
+    return { kind: node.type, refId: '', titel: 'Ukendt', aktiv: false }
+  }
+
+  private async findNodeId(kind: NodeType, refId: string): Promise<string | null> {
+    const { data } = await this.sb.from('farve_noder').select('id').eq('type', kind).eq(NODE_COL[kind], refId).eq('slettet', false).maybeSingle()
+    return data ? (data as { id: string }).id : null
+  }
+
+  async getRelationsForColor(kind: NodeType, refId: string): Promise<RelationView[]> {
+    const nodeId = await this.findNodeId(kind, refId)
+    if (!nodeId) return []
+    const { data: rels } = await this.sb
+      .from('farve_relationer')
+      .select('*')
+      .or(`fra_node_id.eq.${nodeId},til_node_id.eq.${nodeId}`)
+      .eq('slettet', false)
+      .order('created_at', { ascending: false })
+    const list = (rels as { id: string; status: MatchStatus; note: string | null; created_at: string; fra_node_id: string; til_node_id: string }[] | null) ?? []
+    if (list.length === 0) return []
+    const otherIds = [...new Set(list.map((r) => (r.fra_node_id === nodeId ? r.til_node_id : r.fra_node_id)))]
+    const { data: others } = await this.sb.from('farve_noder').select('*').in('id', otherIds)
+    const valgMap = new Map<string, FarveValg>()
+    for (const n of (others as NodeRow[] | null) ?? []) valgMap.set(n.id, await this.nodeToFarveValg(n))
+    return list.map((r) => {
+      const otherId = r.fra_node_id === nodeId ? r.til_node_id : r.fra_node_id
+      return { id: r.id, status: r.status, note: r.note, created_at: r.created_at, modpart: valgMap.get(otherId) ?? { kind: 'lokal', refId: '', titel: 'Ukendt', aktiv: false } }
+    })
+  }
+
+  private async findOrCreateNode(kind: NodeType, refId: string, user: CurrentUser): Promise<string> {
+    const existing = await this.findNodeId(kind, refId)
+    if (existing) return existing
+    const row: Record<string, unknown> = { type: kind, created_by: user.id, created_by_navn: user.navn, updated_by: user.id }
+    row[NODE_COL[kind]] = refId
+    const { data, error } = await this.sb.from('farve_noder').insert(row).select('id').single()
+    if (error) throw error
+    return (data as { id: string }).id
+  }
+
+  async createRelationMellem(
+    a: { kind: NodeType; refId: string },
+    b: { kind: NodeType; refId: string },
+    note: string | null,
+    user: CurrentUser,
+  ): Promise<{ id: string }> {
+    if (a.kind === b.kind && a.refId === b.refId) throw new Error('Vælg to forskellige farver.')
+    const fra = await this.findOrCreateNode(a.kind, a.refId, user)
+    const til = await this.findOrCreateNode(b.kind, b.refId, user)
+    if (fra === til) throw new Error('Vælg to forskellige farver.')
+    const { data, error } = await this.sb
+      .from('farve_relationer')
+      .insert({ fra_node_id: fra, til_node_id: til, status: 'forslag', note: note ?? null, created_by: user.id, created_by_navn: user.navn, updated_by: user.id })
+      .select('id')
+      .single()
+    if (error) {
+      if (/duplicate key|unique|par_uq/i.test(error.message)) {
+        throw new Error('Der findes allerede en relation mellem de to farver.')
+      }
+      throw error
+    }
+    return { id: (data as { id: string }).id }
   }
 }

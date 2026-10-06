@@ -11,8 +11,11 @@ import type {
   MatchType,
   Material,
   MaterialColor,
+  NodeType,
   ProductionContext,
   ReferenceColor,
+  RelationView,
+  SourceFolie,
   VerificationHistory,
 } from '../lib/types'
 
@@ -99,4 +102,19 @@ export interface FarveStore {
   pendingProposals(limit: number): Promise<MatchEnriched[]>
   listImportIssues(): Promise<ImportIssue[]>
   stats(): Promise<Stats>
+
+  // ── V1.2: palette-neutral knude/relation-flow ──────────────────────────
+  /** Søg aktive Source-foliefarver via læsekontrakten. [] uden Supabase. */
+  searchSourceFolie(query: string): Promise<SourceFolie[]>
+  /** Hent én Source-foliefarve (også udgået) via stabil variant-ID. */
+  getSourceFolie(variantId: string): Promise<SourceFolie | null>
+  /** Relationer for en farve (opretter ingen knude). */
+  getRelationsForColor(kind: NodeType, refId: string): Promise<RelationView[]>
+  /** Opret relation (status 'forslag') mellem to farver; lazy find-or-create af knuder. */
+  createRelationMellem(
+    a: { kind: NodeType; refId: string },
+    b: { kind: NodeType; refId: string },
+    note: string | null,
+    user: CurrentUser,
+  ): Promise<{ id: string }>
 }

@@ -2,16 +2,41 @@
 // konfigureret (lokal udvikling / demo). Aldrig den endelige dataløsning.
 import type {
   CurrentUser,
+  FarveValg,
   ImportIssue,
   Match,
   MatchEnriched,
   MatchStatus,
   Material,
   MaterialColor,
+  NodeType,
   ProductionContext,
   ReferenceColor,
+  RelationView,
+  SourceFolie,
   VerificationHistory,
 } from '../lib/types'
+
+interface LocalNode {
+  id: string
+  type: NodeType
+  reference_color_id: string | null
+  source_variant_id: string | null
+  material_color_id: string | null
+  slettet: boolean
+}
+interface LocalRelation {
+  id: string
+  fra_node_id: string
+  til_node_id: string
+  status: MatchStatus
+  note: string | null
+  created_at: string
+  slettet: boolean
+}
+function nodeRef(n: LocalNode): string | null {
+  return n.type === 'pantone' ? n.reference_color_id : n.type === 'source' ? n.source_variant_id : n.material_color_id
+}
 import { scoreMaterialColor, scoreReference } from '../lib/search'
 import type {
   CreateMatchInput,
@@ -33,6 +58,8 @@ interface Mutable {
   production: ProductionContext[]
   history: VerificationHistory[]
   issues: ImportIssue[]
+  noder: LocalNode[]
+  relationer: LocalRelation[]
 }
 
 function now(): string {
@@ -52,6 +79,8 @@ export class LocalStore implements FarveStore {
     production: [],
     history: [],
     issues: [],
+    noder: [],
+    relationer: [],
   }
   private ready: Promise<void>
 
@@ -67,6 +96,9 @@ export class LocalStore implements FarveStore {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_KEY) : null
     if (saved) {
       this.data = JSON.parse(saved)
+      // Bagudkompat: ældre gemt data mangler V1.2-felter.
+      this.data.noder ??= []
+      this.data.relationer ??= []
       return
     }
     // Første kørsel: seed SMU-viden fra genererede filer.
@@ -83,6 +115,8 @@ export class LocalStore implements FarveStore {
       production: [],
       history: [],
       issues: issues.default as unknown as ImportIssue[],
+      noder: [],
+      relationer: [],
     }
     this.persist()
   }
@@ -403,5 +437,85 @@ export class LocalStore implements FarveStore {
       afvist: by('afvist'),
       issuesOpen: this.data.issues.filter((i) => !i.resolved).length,
     }
+  }
+
+  // ── V1.2 (lokal dev) — Source kun i Supabase; knuder/relationer i localStorage ──
+
+  async searchSourceFolie(): Promise<SourceFolie[]> {
+    return [] // Source-læsekontrakten findes kun mod det delte Supabase-projekt.
+  }
+
+  async getSourceFolie(): Promise<SourceFolie | null> {
+    return null
+  }
+
+  private localNodeToValg(node: LocalNode): FarveValg {
+    if (node.type === 'pantone' && node.reference_color_id) {
+      const r = this.references.find((x) => x.id === node.reference_color_id)
+      return { kind: 'pantone', refId: node.reference_color_id, titel: r?.pantone_name ?? 'Pantone', undertekst: r?.cp_name ?? null, hex: r?.hex ?? null, vejledende: false, aktiv: true }
+    }
+    if (node.type === 'lokal' && node.material_color_id) {
+      const mc = this.data.materialColors.find((x) => x.id === node.material_color_id)
+      return { kind: 'lokal', refId: node.material_color_id, titel: mc?.kode ?? 'Lokal', undertekst: mc?.navn ?? null, hex: mc?.hex ?? null, vejledende: false, aktiv: true }
+    }
+    if (node.type === 'source' && node.source_variant_id) {
+      return { kind: 'source', refId: node.source_variant_id, titel: 'Source-folie', undertekst: '(kun i Supabase)', hex: null, vejledende: true, aktiv: false }
+    }
+    return { kind: node.type, refId: '', titel: 'Ukendt', aktiv: false }
+  }
+
+  async getRelationsForColor(kind: NodeType, refId: string): Promise<RelationView[]> {
+    await this.ready
+    const node = this.data.noder.find((n) => n.type === kind && nodeRef(n) === refId && !n.slettet)
+    if (!node) return []
+    return this.data.relationer
+      .filter((r) => !r.slettet && (r.fra_node_id === node.id || r.til_node_id === node.id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((r) => {
+        const otherId = r.fra_node_id === node.id ? r.til_node_id : r.fra_node_id
+        const other = this.data.noder.find((n) => n.id === otherId)
+        return {
+          id: r.id,
+          status: r.status,
+          note: r.note,
+          created_at: r.created_at,
+          modpart: other ? this.localNodeToValg(other) : { kind: 'lokal' as NodeType, refId: '', titel: 'Ukendt', aktiv: false },
+        }
+      })
+  }
+
+  private localFindOrCreateNode(kind: NodeType, refId: string): string {
+    const found = this.data.noder.find((n) => n.type === kind && nodeRef(n) === refId && !n.slettet)
+    if (found) return found.id
+    const node: LocalNode = {
+      id: uid(),
+      type: kind,
+      reference_color_id: kind === 'pantone' ? refId : null,
+      source_variant_id: kind === 'source' ? refId : null,
+      material_color_id: kind === 'lokal' ? refId : null,
+      slettet: false,
+    }
+    this.data.noder.push(node)
+    return node.id
+  }
+
+  async createRelationMellem(
+    a: { kind: NodeType; refId: string },
+    b: { kind: NodeType; refId: string },
+    note: string | null,
+  ): Promise<{ id: string }> {
+    await this.ready
+    if (a.kind === b.kind && a.refId === b.refId) throw new Error('Vælg to forskellige farver.')
+    const fra = this.localFindOrCreateNode(a.kind, a.refId)
+    const til = this.localFindOrCreateNode(b.kind, b.refId)
+    if (fra === til) throw new Error('Vælg to forskellige farver.')
+    const dup = this.data.relationer.find(
+      (r) => !r.slettet && ((r.fra_node_id === fra && r.til_node_id === til) || (r.fra_node_id === til && r.til_node_id === fra)),
+    )
+    if (dup) throw new Error('Der findes allerede en relation mellem de to farver.')
+    const rel: LocalRelation = { id: uid(), fra_node_id: fra, til_node_id: til, status: 'forslag', note: note ?? null, created_at: now(), slettet: false }
+    this.data.relationer.push(rel)
+    this.persist()
+    return { id: rel.id }
   }
 }
