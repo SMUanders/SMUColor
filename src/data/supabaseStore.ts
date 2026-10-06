@@ -282,6 +282,11 @@ export class SupabaseStore implements FarveStore {
     return this.enrich((data as Match[]) ?? [])
   }
 
+  async recentMatches(limit: number): Promise<MatchEnriched[]> {
+    const { data } = await this.sb.from(T.matches).select('*').eq('slettet', false).order('updated_at', { ascending: false }).limit(limit)
+    return this.enrich((data as Match[]) ?? [])
+  }
+
   async recentVerified(limit: number): Promise<MatchEnriched[]> {
     const { data } = await this.sb.from(T.matches).select('*').eq('slettet', false).eq('status', 'verificeret').order('verified_at', { ascending: false }).limit(limit)
     return this.enrich((data as Match[]) ?? [])

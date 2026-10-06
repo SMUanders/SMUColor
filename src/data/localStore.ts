@@ -359,6 +359,14 @@ export class LocalStore implements FarveStore {
       .map((m) => this.enrich(m))
   }
 
+  async recentMatches(limit: number): Promise<MatchEnriched[]> {
+    await this.ready
+    return this.liveMatches()
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, limit)
+      .map((m) => this.enrich(m))
+  }
+
   async recentVerified(limit: number): Promise<MatchEnriched[]> {
     await this.ready
     return this.liveMatches()

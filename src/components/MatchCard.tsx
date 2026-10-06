@@ -46,7 +46,7 @@ export function MatchCard({ match, canEdit }: { match: MatchEnriched; canEdit: b
           </span>
         )}
         {canEdit && (
-          <Link to={`/match/${match.id}`} className="smu-btn-secondary" style={{ marginLeft: 'auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Link to={`/match/${match.id}/rediger`} className="smu-btn-secondary" style={{ marginLeft: 'auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Pencil size={14} /> {isVerified || match.status === 'afvist' ? 'Rediger' : 'Rediger / verificér'}
           </Link>
         )}

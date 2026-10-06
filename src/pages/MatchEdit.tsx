@@ -133,7 +133,7 @@ export default function MatchEdit() {
           user,
         )
         if (prodFilled) await store.upsertProduction(created.id, prod, user)
-        navigate(`/match/${created.id}`, { replace: true })
+        navigate(`/match/${created.id}/rediger`, { replace: true })
       } else {
         await store.updateMatch(matchId!, { match_type: matchType, note: note.trim() || null, material_color_id: materialColorId }, user)
         if (prodFilled) await store.upsertProduction(matchId!, prod, user)

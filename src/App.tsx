@@ -5,6 +5,7 @@ import { Spinner } from './components/common'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import ColorDetail from './pages/ColorDetail'
+import MatchDetail from './pages/MatchDetail'
 import MatchEdit from './pages/MatchEdit'
 import Admin from './pages/Admin'
 
@@ -43,13 +44,15 @@ export default function App() {
           }
         />
         <Route
-          path="/match/:matchId"
+          path="/match/:matchId/rediger"
           element={
             <RequireRedaktoer>
               <MatchEdit />
             </RequireRedaktoer>
           }
         />
+        {/* Read-only matchdetalje — alle brugere med aktiv Color-adgang (RLS: har_app_adgang). */}
+        <Route path="/match/:matchId" element={<MatchDetail />} />
         <Route
           path="/admin"
           element={

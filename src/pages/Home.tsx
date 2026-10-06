@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2, CircleDashed, Layers, Search, X } from 'lucide-react'
+import { CheckCircle2, Layers, Palette, Plus, Search, X } from 'lucide-react'
 import { getStore } from '../data'
-import type { SearchResult } from '../data/store'
+import { useAuth } from '../context/AuthContext'
+import type { SearchResult, Stats } from '../data/store'
 import type { MatchEnriched, MatchStatus } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { StatusBadge } from '../components/StatusBadge'
@@ -170,61 +171,83 @@ function Results({ result, onOpenRef }: { result: SearchResult; onOpenRef: (id: 
 
 function HomeOverview() {
   const store = getStore()
-  const [verified, setVerified] = useState<MatchEnriched[] | null>(null)
-  const [pending, setPending] = useState<MatchEnriched[] | null>(null)
+  const { user } = useAuth()
+  const canEdit = Boolean(user?.erRedaktoer)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [recent, setRecent] = useState<MatchEnriched[] | null>(null)
 
   useEffect(() => {
-    store.recentVerified(5).then(setVerified)
-    store.pendingProposals(5).then(setPending)
+    store.stats().then(setStats)
+    store.recentMatches(10).then(setRecent)
   }, [store])
 
-  const loading = verified === null || pending === null
-  const empty = useMemo(() => !loading && verified!.length === 0 && pending!.length === 0, [loading, verified, pending])
-
-  if (loading) return <Spinner label="Indlæser…" />
-  if (empty) {
-    return (
-      <EmptyState icon={Search} title="Søg efter en farve for at komme i gang">
-        Skriv et Pantone-nummer, en foliekode eller et farvenavn i feltet ovenfor.
-      </EmptyState>
-    )
-  }
+  if (stats === null || recent === null) return <Spinner label="Indlæser…" />
 
   return (
-    <div style={{ display: 'grid', gap: 22, gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-      <MiniList title="Senest verificeret" icon={<CheckCircle2 size={14} />} items={verified!} emptyText="Ingen verificerede matches endnu." />
-      <MiniList title="Forslag der afventer" icon={<CircleDashed size={14} />} items={pending!} emptyText="Ingen forslag i kø." />
+    <div style={{ display: 'grid', gap: 24 }}>
+      {/* Tælletal — altid fra faktiske data (store.stats), aldrig hardcodet. */}
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        <StatCard icon={<Palette size={18} />} value={stats.referenceCount} label="Pantone-referencer" />
+        <StatCard icon={<Layers size={18} />} value={stats.matchCount} label="Farvematches" />
+        <StatCard icon={<CheckCircle2 size={18} />} value={stats.verificeret} label="Verificerede" accent />
+      </div>
+
+      {/* Primær handling — kun for redaktører (skriveret). */}
+      {canEdit && (
+        <div>
+          <Link
+            to="/match/ny"
+            className="smu-btn-primary"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+          >
+            <Plus size={16} /> Opret farvematch
+          </Link>
+        </div>
+      )}
+
+      {/* Seneste 10 matches, uanset status — sorteret efter seneste ændring. */}
+      <section>
+        <SectionTitle>Seneste matches</SectionTitle>
+        {recent.length === 0 ? (
+          <EmptyState icon={Layers} title="Ingen farvematches endnu">
+            {canEdit
+              ? 'Opret det første match med knappen ovenfor, eller søg en farve for at komme i gang.'
+              : 'Der er endnu ikke oprettet matches. Søg en farve ovenfor for at se referencer.'}
+          </EmptyState>
+        ) : (
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {recent.map((m, i) => (
+              <Link
+                key={m.id}
+                to={`/match/${m.id}`}
+                className="smu-clickable"
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', textDecoration: 'none', color: 'inherit', borderTop: i ? '1px solid var(--color-border-soft)' : undefined }}
+              >
+                <Swatch hex={m.reference?.hex} size={40} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14 }}>{m.reference?.pantone_name ?? 'Uden reference'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {m.materialColor ? `${m.material?.navn ?? ''} ${m.materialColor.kode}`.trim() : 'Uden materiale'}
+                  </div>
+                </div>
+                <StatusBadge status={m.status} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
 
-function MiniList({ title, items, emptyText }: { title: string; icon: React.ReactNode; items: MatchEnriched[]; emptyText: string }) {
+function StatCard({ icon, value, label, accent }: { icon: ReactNode; value: number; label: string; accent?: boolean }) {
   return (
-    <section>
-      <SectionTitle>{title}</SectionTitle>
-      <div className="smu-card" style={{ overflow: 'hidden' }}>
-        {items.length === 0 ? (
-          <div style={{ padding: '18px 16px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)' }}>{emptyText}</div>
-        ) : (
-          items.map((m, i) => (
-            <Link
-              key={m.id}
-              to={m.reference_color_id ? `/farve/${m.reference_color_id}` : `/match/${m.id}`}
-              className="smu-clickable"
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', textDecoration: 'none', color: 'inherit', borderTop: i ? '1px solid var(--color-border-soft)' : undefined }}
-            >
-              <Swatch hex={m.reference?.hex} size={38} />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>{m.reference?.pantone_name ?? 'Uden reference'}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.materialColor ? `${m.material?.navn ?? ''} ${m.materialColor.kode}`.trim() : m.match_type}
-                </div>
-              </div>
-              <StatusBadge status={m.status} />
-            </Link>
-          ))
-        )}
+    <div className="smu-card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ color: accent ? 'var(--color-teal-deep)' : 'var(--color-text-muted)', display: 'inline-flex' }}>{icon}</span>
+      <div>
+        <div style={{ fontWeight: 800, fontSize: 22, lineHeight: 1 }}>{value.toLocaleString('da-DK')}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', marginTop: 3 }}>{label}</div>
       </div>
-    </section>
+    </div>
   )
 }

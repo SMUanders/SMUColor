@@ -94,6 +94,7 @@ export interface FarveStore {
   createMaterialColor(input: CreateMaterialColorInput, user: CurrentUser): Promise<MaterialColor>
 
   listMatches(filter?: { status?: MatchStatus; needsReview?: boolean }): Promise<MatchEnriched[]>
+  recentMatches(limit: number): Promise<MatchEnriched[]>
   recentVerified(limit: number): Promise<MatchEnriched[]>
   pendingProposals(limit: number): Promise<MatchEnriched[]>
   listImportIssues(): Promise<ImportIssue[]>
