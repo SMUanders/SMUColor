@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { hasSupabase, supabase } from '../lib/supabase'
+import { erColorRedaktoer } from '../lib/colorAccess'
 import type { CurrentUser } from '../lib/types'
 
 interface AuthState {
@@ -47,10 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         return
       }
-      // Hent navn + rolle fra den delte profiler-tabel (defensivt — kolonner
-      // kan variere i det delte projekt).
+      // Navn fra den delte profiler-tabel (defensivt — kolonner kan variere).
       let navn = navnFraEmail(authUser.email ?? '')
-      let erRedaktoer = false
       try {
         const { data: profil } = await supabase!
           .from('profiler')
@@ -60,12 +59,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (profil) {
           const p = profil as Record<string, unknown>
           navn = (p.navn as string) || (p.fornavn as string) || navn
-          const rolle = String(p.rolle ?? p.role ?? '').toLowerCase()
-          erRedaktoer = ['admin', 'redaktoer', 'redaktør', 'editor'].includes(rolle)
         }
       } catch {
         // profiler findes måske ikke endnu — fald tilbage til navn fra email.
       }
+
+      // Skriveret (redaktør) udledes af den APP-SPECIFIKKE Color-rolle i app_adgange —
+      // samme autoritative kilde som DB-RLS (har_app_rolle('color','redaktoer')), IKKE
+      // profiler.rolle. Eksplicit user_id-filter (ingen bypass), samme mønster som
+      // platform-nav/useAllowedApps. Fail-closed: fejl eller manglende/inaktiv color-
+      // adgang → ingen forhøjede rettigheder.
+      let erRedaktoer = false
+      try {
+        const { data: adgange } = await supabase!
+          .from('app_adgange')
+          .select('rolle')
+          .eq('user_id', authUser.id)
+          .eq('app', 'color')
+          .eq('aktiv', true)
+        const roller = ((adgange as { rolle: string }[] | null) ?? []).map((r) => r.rolle)
+        erRedaktoer = erColorRedaktoer(roller)
+      } catch {
+        // fail-closed — ingen rettigheder ved fejl.
+      }
+
       setUser({ id: authUser.id, email: authUser.email ?? '', navn, erRedaktoer })
     }
 
