@@ -16,6 +16,7 @@ import type {
   PrintopskriftView,
   ProductionContext,
   ReferenceColor,
+  ReferenceFarve,
   RelationView,
   SourceBibliotek,
   SourceFolie,
@@ -30,6 +31,7 @@ interface LocalNode {
   id: string
   type: NodeType
   reference_color_id: string | null
+  reference_farve_id: string | null
   source_variant_id: string | null
   material_color_id: string | null
   slettet: boolean
@@ -44,7 +46,16 @@ interface LocalRelation {
   slettet: boolean
 }
 function nodeRef(n: LocalNode): string | null {
-  return n.type === 'pantone' ? n.reference_color_id : n.type === 'source' ? n.source_variant_id : n.material_color_id
+  switch (n.type) {
+    case 'pantone':
+      return n.reference_color_id
+    case 'ral':
+      return n.reference_farve_id
+    case 'source':
+      return n.source_variant_id
+    default:
+      return n.material_color_id
+  }
 }
 import { scoreMaterialColor, scoreReference } from '../lib/search'
 import type {
@@ -462,6 +473,17 @@ export class LocalStore implements FarveStore {
     return null
   }
 
+  // RAL Classic-referencebiblioteket ligger kun i det delte Supabase-projekt.
+  async searchRal(): Promise<FarveValg[]> {
+    return []
+  }
+  async getRalFarve(): Promise<ReferenceFarve | null> {
+    return null
+  }
+  async listRalFarver(): Promise<ReferenceFarve[]> {
+    return []
+  }
+
   private localNodeToValg(node: LocalNode): FarveValg {
     if (node.type === 'pantone' && node.reference_color_id) {
       const r = this.references.find((x) => x.id === node.reference_color_id)
@@ -473,6 +495,9 @@ export class LocalStore implements FarveStore {
     }
     if (node.type === 'source' && node.source_variant_id) {
       return { kind: 'source', refId: node.source_variant_id, titel: 'Source-folie', undertekst: '(kun i Supabase)', hex: null, vejledende: true, aktiv: false }
+    }
+    if (node.type === 'ral' && node.reference_farve_id) {
+      return { kind: 'ral', refId: node.reference_farve_id, titel: 'RAL', undertekst: '(kun i Supabase)', hex: null, vejledende: true, aktiv: true }
     }
     return { kind: node.type, refId: '', titel: 'Ukendt', aktiv: false }
   }
@@ -504,6 +529,7 @@ export class LocalStore implements FarveStore {
       id: uid(),
       type: kind,
       reference_color_id: kind === 'pantone' ? refId : null,
+      reference_farve_id: kind === 'ral' ? refId : null,
       source_variant_id: kind === 'source' ? refId : null,
       material_color_id: kind === 'lokal' ? refId : null,
       slettet: false,

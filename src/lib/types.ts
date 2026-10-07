@@ -172,7 +172,25 @@ export interface CurrentUser {
 }
 
 // ── V1.2: palette-neutral knude/relation-model ──────────────────────────────
-export type NodeType = 'pantone' | 'source' | 'lokal'
+// 'pantone' og 'ral' er begge REFERENCEFARVER (farve_noder.type = 'reference' i
+// DB) — UI'et skelner kun, fordi de har hver sin side/opslagsvej. 'source' =
+// materiale-folie, 'lokal' = material_color.
+export type NodeType = 'pantone' | 'ral' | 'source' | 'lokal'
+
+/**
+ * En generisk referencefarve (RAL Classic m.fl.) — samme niveau som Pantone.
+ * hex er en VEJLEDENDE digital farve og aldrig et verificeret fysisk match.
+ */
+export interface ReferenceFarve {
+  id: string
+  bibliotek_kode: string
+  bibliotek_navn: string
+  kode: string
+  navn: string
+  hex: string | null
+  kilde: string | null
+  kilde_version: string | null
+}
 
 /**
  * Source-foliefarve læst via kontrakten (farve_source_foliefarver).
@@ -198,7 +216,7 @@ export interface SourceFolie {
 /** En farve til visning/valg i V1.2 (uanset palette). */
 export interface FarveValg {
   kind: NodeType
-  /** Stabil kilde-id: pantone→reference_color_id · source→source_variant_id · lokal→material_color_id */
+  /** Stabil kilde-id: pantone→reference_color_id · ral→reference_farve_id · source→source_variant_id · lokal→material_color_id */
   refId: string
   titel: string
   undertekst?: string | null

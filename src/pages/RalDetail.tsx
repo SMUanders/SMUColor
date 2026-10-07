@@ -2,45 +2,47 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Layers, Plus } from 'lucide-react'
 import { getStore } from '../data'
-import type { FarveValg, ReferenceColor, RelationView } from '../lib/types'
+import type { FarveValg, ReferenceFarve, RelationView } from '../lib/types'
 import { useAuth } from '../context/AuthContext'
-import { ReferenceCard } from '../components/ReferenceCard'
+import { Swatch } from '../components/Swatch'
 import { FarveValgRow } from '../components/FarveValgRow'
 import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
 import { StatusBadge } from '../components/StatusBadge'
 import { farveHref } from '../lib/nav'
 import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
 
-export default function ColorDetail() {
+export default function RalDetail() {
   const { refId } = useParams<{ refId: string }>()
   const store = getStore()
   const navigate = useNavigate()
   const { user } = useAuth()
   const canEdit = Boolean(user?.erRedaktoer)
 
-  const [ref, setRef] = useState<ReferenceColor | null | undefined>(undefined)
+  const [farve, setFarve] = useState<ReferenceFarve | null | undefined>(undefined)
   const [relations, setRelations] = useState<RelationView[] | null>(null)
 
   useEffect(() => {
     if (!refId) return
-    setRef(undefined)
+    setFarve(undefined)
     setRelations(null)
-    store.getReference(refId).then(setRef)
-    store.getRelationsForColor('pantone', refId).then(setRelations)
+    store.getRalFarve(refId).then(setFarve)
+    store.getRelationsForColor('ral', refId).then(setRelations)
   }, [refId, store])
 
-  if (ref === undefined) return <Spinner label="Indlæser farve…" />
-  if (ref === null) return <ErrorState title="Farven blev ikke fundet">Referencen findes ikke i Color Bridge-biblioteket.</ErrorState>
+  if (farve === undefined) return <Spinner label="Indlæser farve…" />
+  if (farve === null) return <ErrorState title="Farven blev ikke fundet">Referencefarven findes ikke i biblioteket.</ErrorState>
 
-  const pantoneValg: FarveValg = {
-    kind: 'pantone',
-    refId: ref.id,
-    titel: ref.pantone_name,
-    undertekst: ref.cp_name,
-    hex: ref.hex,
-    vejledende: false,
+  const valg: FarveValg = {
+    kind: 'ral',
+    refId: farve.id,
+    titel: farve.navn,
+    undertekst: farve.bibliotek_navn,
+    hex: farve.hex,
+    vejledende: true,
     aktiv: true,
   }
+
+  const kildeLinje = [farve.kilde, farve.kilde_version].filter(Boolean).join(' · ')
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -48,12 +50,26 @@ export default function ColorDetail() {
         <ArrowLeft size={15} /> Tilbage til søgning
       </Link>
 
-      <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 4px' }}>{ref.pantone_name}</h1>
+      <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 4px' }}>{farve.navn}</h1>
       <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text-muted)', margin: '0 0 20px' }}>
-        Spotfarve · Coated{ref.cp_name ? ` · CMYK-reference: ${ref.cp_name}` : ''}
+        Referencefarve · {farve.bibliotek_navn}
       </p>
 
-      <ReferenceCard color={ref} />
+      {/* Identitetskort — digital farve er VEJLEDENDE, ikke fysisk sandhed. */}
+      <div className="smu-card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16 }}>
+        <Swatch hex={farve.hex} size={72} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>RAL {farve.kode}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 2 }}>
+            {farve.hex ? `Vejledende digital farve ${farve.hex} — ikke et verificeret fysisk match` : 'Ingen digital farve registreret'}
+          </div>
+          {kildeLinje && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 4 }}>
+              Kilde: {kildeLinje}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Farvematches (palette-neutralt) */}
       <div style={{ marginTop: 28 }}>
@@ -62,7 +78,7 @@ export default function ColorDetail() {
             canEdit ? (
               <Link
                 to="/relation/ny"
-                state={{ fra: pantoneValg }}
+                state={{ fra: valg }}
                 className="smu-btn-primary"
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}
               >
@@ -77,8 +93,8 @@ export default function ColorDetail() {
           <Spinner />
         ) : relations.length === 0 ? (
           <EmptyState icon={Layers} title="Ingen farvematches endnu">
-            Referencen ovenfor (spot + CP) er ikke det samme som et verificeret match.
-            {canEdit ? ' Match denne farve med en folie eller en anden farve for at begynde.' : ' En redaktør kan oprette et farvematch.'}
+            RAL-koden ovenfor er en reference.
+            {canEdit ? ' Match den med en folie eller en anden farve for at begynde.' : ' En redaktør kan oprette et farvematch.'}
           </EmptyState>
         ) : (
           <div className="smu-card" style={{ overflow: 'hidden' }}>
@@ -98,7 +114,7 @@ export default function ColorDetail() {
         )}
       </div>
 
-      <PrintopskriftSektion farve={pantoneValg} canEdit={canEdit} />
+      <PrintopskriftSektion farve={valg} canEdit={canEdit} />
     </div>
   )
 }

@@ -17,7 +17,9 @@ import type {
   Printopskrift,
   PrintopskriftView,
   ProductionContext,
+  FarveValg,
   ReferenceColor,
+  ReferenceFarve,
   RelationView,
   SourceBibliotek,
   SourceFolie,
@@ -87,6 +89,14 @@ export interface FarveStore {
 
   getReference(id: string): Promise<ReferenceColor | null>
   findReferenceByCode(code: string): Promise<ReferenceColor | null>
+
+  // ── Referencebiblioteker (RAL Classic m.fl.) — samme niveau som Pantone ──
+  /** Søg RAL Classic på kode ("3020", "RAL 3020") eller navn. [] uden Supabase. */
+  searchRal(query: string): Promise<FarveValg[]>
+  /** Hent én referencefarve (RAL) til dens farveside. null uden Supabase. */
+  getRalFarve(refId: string): Promise<ReferenceFarve | null>
+  /** Alle RAL Classic-farver til browsing. [] uden Supabase. */
+  listRalFarver(): Promise<ReferenceFarve[]>
 
   getMatchesForReference(refId: string): Promise<MatchEnriched[]>
   getMatch(id: string): Promise<MatchEnriched | null>

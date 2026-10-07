@@ -5,6 +5,8 @@ import { Spinner } from './components/common'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import ColorDetail from './pages/ColorDetail'
+import RalDetail from './pages/RalDetail'
+import RalBibliotek from './pages/RalBibliotek'
 import FolieDetail from './pages/FolieDetail'
 import RelationNy from './pages/RelationNy'
 import PaletteSerie from './pages/PaletteSerie'
@@ -40,6 +42,9 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="/farve/:refId" element={<ColorDetail />} />
+        {/* V1.4 — RAL Classic referencebibliotek */}
+        <Route path="/ral" element={<RalBibliotek />} />
+        <Route path="/ral/:refId" element={<RalDetail />} />
         {/* V1.2 — palette-neutralt flow */}
         <Route path="/folie/:variantId" element={<FolieDetail />} />
         <Route

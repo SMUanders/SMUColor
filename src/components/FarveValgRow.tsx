@@ -3,7 +3,7 @@ import type { FarveValg, NodeType } from '../lib/types'
 import { Swatch } from './Swatch'
 
 function kindLabel(k: NodeType): string {
-  return k === 'pantone' ? 'Pantone' : k === 'source' ? 'Source-folie' : 'Lokal'
+  return k === 'pantone' ? 'Pantone' : k === 'ral' ? 'RAL Classic' : k === 'source' ? 'Source-folie' : 'Lokal'
 }
 
 /** Ensartet visning af en farve (uanset palette) i lister, resultater og vælgere. */

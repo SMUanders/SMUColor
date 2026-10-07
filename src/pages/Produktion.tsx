@@ -6,6 +6,7 @@ import type { FarveValg, PrintopskriftView } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatCmyk, parseCmyk } from '../lib/cmyk'
+import { farveHref } from '../lib/nav'
 import { EmptyState, Spinner } from '../components/common'
 
 function harCmyk(o: PrintopskriftView['opskrift']): boolean {
@@ -32,8 +33,8 @@ export default function Produktion() {
   }, [alle, q, cmyk])
 
   function openFarve(v: FarveValg) {
-    if (v.kind === 'pantone') navigate(`/farve/${v.refId}`)
-    else if (v.kind === 'source') navigate(`/folie/${v.refId}`)
+    const href = farveHref(v)
+    if (href) navigate(href)
   }
 
   return (

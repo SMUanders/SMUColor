@@ -3,24 +3,26 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Palette, Printer, Search, X } from 'lucide-react'
 import { getStore } from '../data'
 import type { SearchResult } from '../data/store'
-import type { PrintopskriftView, ReferenceColor, SourceBibliotek, SourceFolie } from '../lib/types'
+import type { FarveValg, PrintopskriftView, ReferenceColor, SourceBibliotek, SourceFolie } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { FarveValgRow } from '../components/FarveValgRow'
 import { StatusBadge } from '../components/StatusBadge'
 import { folieToValg } from '../lib/folie'
+import { farveHref } from '../lib/nav'
 import { formatCmyk, parseCmyk } from '../lib/cmyk'
 import { EmptyState, SectionTitle, Spinner } from '../components/common'
 
-const EKSEMPLER = ['186', '751-031', 'ORACAL 751C 031', 'C0 M100 Y80 K5']
+const EKSEMPLER = ['186', 'RAL 3020', '751-031', 'C0 M100 Y80 K5']
 
 interface Fund {
   result: SearchResult | null
   folier: SourceFolie[]
+  ral: FarveValg[]
   opskrifter: PrintopskriftView[]
   refCmyk: ReferenceColor[]
   cmyk: boolean
 }
-const TOMT: Fund = { result: null, folier: [], opskrifter: [], refCmyk: [], cmyk: false }
+const TOMT: Fund = { result: null, folier: [], ral: [], opskrifter: [], refCmyk: [], cmyk: false }
 
 export default function Home() {
   const store = getStore()
@@ -46,10 +48,10 @@ export default function Home() {
     const t = setTimeout(async () => {
       if (cmyk) {
         const [opskrifter, refCmyk] = await Promise.all([store.searchPrintopskriftByCmyk(cmyk), store.searchReferenceByCmyk(cmyk)])
-        setFund({ result: null, folier: [], opskrifter, refCmyk, cmyk: true })
+        setFund({ result: null, folier: [], ral: [], opskrifter, refCmyk, cmyk: true })
       } else {
-        const [result, folier] = await Promise.all([store.search(q), store.searchSourceFolie(q)])
-        setFund({ result, folier, opskrifter: [], refCmyk: [], cmyk: false })
+        const [result, folier, ral] = await Promise.all([store.search(q), store.searchSourceFolie(q), store.searchRal(q)])
+        setFund({ result, folier, ral, opskrifter: [], refCmyk: [], cmyk: false })
       }
       setSearching(false)
     }, 150)
@@ -59,7 +61,7 @@ export default function Home() {
   const aktiv = query.trim().length > 0
   const hasResults = fund.cmyk
     ? fund.opskrifter.length > 0 || fund.refCmyk.length > 0
-    : Boolean(fund.result && (fund.result.references.length > 0 || fund.folier.length > 0))
+    : Boolean(fund.result && (fund.result.references.length > 0 || fund.folier.length > 0 || fund.ral.length > 0))
 
   return (
     <div>
@@ -131,7 +133,7 @@ function Resultater({ fund, navigate }: { fund: Fund; navigate: (to: string) => 
           ) : (
             <div className="smu-card" style={{ overflow: 'hidden' }}>
               {fund.opskrifter.map((v, i) => (
-                <div key={v.opskrift.id} className="smu-clickable" onClick={() => navigate(v.maalfarve.kind === 'pantone' ? `/farve/${v.maalfarve.refId}` : `/folie/${v.maalfarve.refId}`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: 'pointer' }}>
+                <div key={v.opskrift.id} className="smu-clickable" onClick={() => navigate(farveHref(v.maalfarve) ?? '/')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: 'pointer' }}>
                   <Swatch hex={v.maalfarve.hex} size={40} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 800, fontSize: 14 }}>{v.maalfarve.titel}</div>
@@ -189,6 +191,17 @@ function Resultater({ fund, navigate }: { fund: Fund; navigate: (to: string) => 
         </section>
       )}
 
+      {fund.ral.length > 0 && (
+        <section>
+          <SectionTitle>RAL Classic</SectionTitle>
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {fund.ral.map((v, i) => (
+              <FarveValgRow key={v.refId} valg={v} border={i > 0} onClick={() => navigate(farveHref(v) ?? '/')} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {fund.folier.length > 0 && (
         <section>
           <SectionTitle>Folier</SectionTitle>
@@ -224,6 +237,23 @@ function Forside({ navigate }: { navigate: (to: string) => void }) {
     <div style={{ display: 'grid', gap: 28 }}>
       <section>
         <SectionTitle>Farvebiblioteker</SectionTitle>
+        {store.mode === 'supabase' && (
+          <div className="smu-card" style={{ padding: 16, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Palette size={16} style={{ color: 'var(--color-text-muted)' }} />
+              <span style={{ fontWeight: 800, fontSize: 15 }}>Referencer</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>· standarder</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => navigate('/ral')} className="smu-btn-secondary" style={{ fontSize: 13 }}>
+                RAL Classic
+              </button>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', alignSelf: 'center' }}>
+                Pantone søges direkte — fx 186
+              </span>
+            </div>
+          </div>
+        )}
         {biblioteker === null ? (
           <Spinner />
         ) : grupper.size === 0 ? (

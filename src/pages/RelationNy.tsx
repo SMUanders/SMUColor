@@ -7,6 +7,7 @@ import type { FarveValg, ReferenceColor } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { FarveValgRow } from '../components/FarveValgRow'
 import { folieToValg } from '../lib/folie'
+import { farveHref } from '../lib/nav'
 import { SectionTitle, Spinner } from '../components/common'
 
 function refToValg(r: ReferenceColor): FarveValg {
@@ -18,6 +19,7 @@ function FarveVaelger({ onPick }: { onPick: (v: FarveValg) => void }) {
   const store = getStore()
   const [q, setQ] = useState('')
   const [refs, setRefs] = useState<FarveValg[]>([])
+  const [ral, setRal] = useState<FarveValg[]>([])
   const [folier, setFolier] = useState<FarveValg[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -25,13 +27,15 @@ function FarveVaelger({ onPick }: { onPick: (v: FarveValg) => void }) {
     const query = q.trim()
     if (!query) {
       setRefs([])
+      setRal([])
       setFolier([])
       return
     }
     setLoading(true)
     const t = setTimeout(async () => {
-      const [r, f] = await Promise.all([store.search(query), store.searchSourceFolie(query)])
+      const [r, rl, f] = await Promise.all([store.search(query), store.searchRal(query), store.searchSourceFolie(query)])
       setRefs(r.references.slice(0, 15).map((x) => refToValg(x.ref)))
+      setRal(rl.slice(0, 15))
       setFolier(f.map(folieToValg))
       setLoading(false)
     }, 160)
@@ -56,7 +60,7 @@ function FarveVaelger({ onPick }: { onPick: (v: FarveValg) => void }) {
         )}
       </div>
       {loading && <Spinner label="Søger…" />}
-      {!loading && q.trim() && refs.length === 0 && folier.length === 0 && (
+      {!loading && q.trim() && refs.length === 0 && ral.length === 0 && folier.length === 0 && (
         <div style={{ padding: 12, fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)' }}>Ingen træf.</div>
       )}
       {refs.length > 0 && (
@@ -64,6 +68,16 @@ function FarveVaelger({ onPick }: { onPick: (v: FarveValg) => void }) {
           <div style={labelStyle}>Pantone</div>
           <div className="smu-card" style={{ overflow: 'hidden' }}>
             {refs.map((v, i) => (
+              <FarveValgRow key={v.refId} valg={v} border={i > 0} onClick={() => onPick(v)} right={<ArrowRight size={15} style={{ color: 'var(--color-text-muted)' }} />} />
+            ))}
+          </div>
+        </div>
+      )}
+      {ral.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={labelStyle}>RAL Classic</div>
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {ral.map((v, i) => (
               <FarveValgRow key={v.refId} valg={v} border={i > 0} onClick={() => onPick(v)} right={<ArrowRight size={15} style={{ color: 'var(--color-text-muted)' }} />} />
             ))}
           </div>
@@ -100,7 +114,7 @@ function ValgtKort({ valg, onRyd }: { valg: FarveValg; onRyd?: () => void }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 14 }}>{valg.titel}</div>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
-          {valg.kind === 'pantone' ? 'Pantone' : valg.kind === 'source' ? 'Source-folie' : 'Lokal'}
+          {valg.kind === 'pantone' ? 'Pantone' : valg.kind === 'ral' ? 'RAL Classic' : valg.kind === 'source' ? 'Source-folie' : 'Lokal'}
           {valg.undertekst ? ` · ${valg.undertekst}` : ''}
           {valg.vejledende && valg.hex ? ' · vejledende farve' : ''}
         </div>
@@ -135,8 +149,7 @@ export default function RelationNy() {
     setError(null)
     try {
       await store.createRelationMellem({ kind: a.kind, refId: a.refId }, { kind: b.kind, refId: b.refId }, note.trim() || null, user)
-      const back = a.kind === 'pantone' ? `/farve/${a.refId}` : a.kind === 'source' ? `/folie/${a.refId}` : '/'
-      navigate(back, { replace: true })
+      navigate(farveHref(a) ?? '/', { replace: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke gemme farvematchet.')
     } finally {

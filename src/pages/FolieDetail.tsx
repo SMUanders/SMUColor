@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { FarveValgRow } from '../components/FarveValgRow'
 import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
 import { folieToValg } from '../lib/folie'
+import { farveHref } from '../lib/nav'
 import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
 
 export default function FolieDetail() {
@@ -36,8 +37,8 @@ export default function FolieDetail() {
   const valg: FarveValg = folieToValg(folie)
 
   function openModpart(v: FarveValg) {
-    if (v.kind === 'pantone') navigate(`/farve/${v.refId}`)
-    else if (v.kind === 'source') navigate(`/folie/${v.refId}`)
+    const href = farveHref(v)
+    if (href) navigate(href)
   }
 
   return (

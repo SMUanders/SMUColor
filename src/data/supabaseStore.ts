@@ -16,6 +16,7 @@ import type {
   PrintopskriftView,
   ProductionContext,
   ReferenceColor,
+  ReferenceFarve,
   RelationView,
   SourceBibliotek,
   SourceFolie,
@@ -24,17 +25,49 @@ import type {
 
 import { folieToValg, parseFolieQuery } from '../lib/folie'
 
+// DB-knude: type = 'reference' | 'source' | 'lokal'. Referencefarver (Pantone
+// OG RAL) hænger på reference_farve_id → farve_reference_farver. Pantone-rækken
+// peger videre via pantone_color_id (backing); RAL har inline kode/navn/hex.
 interface NodeRow {
   id: string
-  type: NodeType
-  reference_color_id: string | null
+  type: 'reference' | 'source' | 'lokal'
+  reference_farve_id: string | null
   source_variant_id: string | null
   material_color_id: string | null
 }
-const NODE_COL: Record<NodeType, 'reference_color_id' | 'source_variant_id' | 'material_color_id'> = {
-  pantone: 'reference_color_id',
+// Kun materiale-baserede knuder slås op direkte på deres egen kolonne.
+const NODE_COL: Record<'source' | 'lokal', 'source_variant_id' | 'material_color_id'> = {
   source: 'source_variant_id',
   lokal: 'material_color_id',
+}
+
+/** Række fra farve_reference_farver med indlejret bibliotek + Pantone-backing. */
+interface RefFarveRow {
+  id: string
+  kode: string
+  navn: string
+  hex: string | null
+  pantone_color_id: string | null
+  kilde?: string | null
+  kilde_version?: string | null
+  bibliotek?: { kode: string; navn: string } | null
+  pantone?: { id: string; pantone_name: string; cp_name: string | null; hex: string | null } | null
+}
+const REF_FARVE_SELECT =
+  'id,kode,navn,hex,pantone_color_id,kilde,kilde_version,' +
+  'bibliotek:farve_reference_biblioteker(kode,navn),' +
+  'pantone:farve_reference_colors(id,pantone_name,cp_name,hex)'
+
+/**
+ * Referencefarve-række → palette-neutralt FarveValg. Pantone-backet række giver
+ * et 'pantone'-valg (refId = pantone_color_id, hex = målt spot = sandhed). Ellers
+ * et 'ral'-valg (refId = reference_farve_id, hex = VEJLEDENDE digital farve).
+ */
+function refRowToValg(row: RefFarveRow): FarveValg {
+  if (row.pantone) {
+    return { kind: 'pantone', refId: row.pantone.id, titel: row.pantone.pantone_name, undertekst: row.pantone.cp_name, hex: row.pantone.hex, vejledende: false, aktiv: true }
+  }
+  return { kind: 'ral', refId: row.id, titel: row.navn, undertekst: row.bibliotek?.navn ?? 'Reference', hex: row.hex, vejledende: true, aktiv: true }
 }
 import { scoreMaterialColor, scoreReference } from '../lib/search'
 import type {
@@ -378,9 +411,10 @@ export class SupabaseStore implements FarveStore {
   }
 
   private async nodeToFarveValg(node: NodeRow): Promise<FarveValg> {
-    if (node.type === 'pantone' && node.reference_color_id) {
-      const ref = await this.getReference(node.reference_color_id)
-      return { kind: 'pantone', refId: node.reference_color_id, titel: ref?.pantone_name ?? 'Pantone', undertekst: ref?.cp_name ?? null, hex: ref?.hex ?? null, vejledende: false, aktiv: true }
+    if (node.type === 'reference' && node.reference_farve_id) {
+      const { data } = await this.sb.from('farve_reference_farver').select(REF_FARVE_SELECT).eq('id', node.reference_farve_id).maybeSingle()
+      if (data) return refRowToValg(data as unknown as RefFarveRow)
+      return { kind: 'ral', refId: node.reference_farve_id, titel: 'Reference', undertekst: null, hex: null, vejledende: true, aktiv: false }
     }
     if (node.type === 'source' && node.source_variant_id) {
       const f = await this.getSourceFolie(node.source_variant_id)
@@ -392,10 +426,32 @@ export class SupabaseStore implements FarveStore {
       const mc = data as MaterialColor | null
       return { kind: 'lokal', refId: node.material_color_id, titel: mc?.kode ?? 'Lokal', undertekst: mc?.navn ?? (mc?.ral_kode ? `RAL ${mc.ral_kode}` : null), hex: mc?.hex ?? null, vejledende: false, aktiv: true }
     }
-    return { kind: node.type, refId: '', titel: 'Ukendt', aktiv: false }
+    return { kind: 'lokal', refId: '', titel: 'Ukendt', aktiv: false }
+  }
+
+  /**
+   * Oversæt (palette-kind, refId) → reference_farve_id for referencefarver.
+   * pantone: find (create=false) eller materialisér lazy via RPC (create=true)
+   * identitetsrækken for Pantone-farven. ral: refId ER reference_farve_id.
+   */
+  private async refFarveId(kind: 'pantone' | 'ral', refId: string, create: boolean): Promise<string | null> {
+    if (kind === 'ral') return refId
+    if (create) {
+      const { data, error } = await this.sb.rpc('farve_reference_farve_for_pantone', { _pantone_color_id: refId })
+      if (error) throw error
+      return (data as string) ?? null
+    }
+    const { data } = await this.sb.from('farve_reference_farver').select('id').eq('pantone_color_id', refId).eq('slettet', false).maybeSingle()
+    return data ? (data as { id: string }).id : null
   }
 
   private async findNodeId(kind: NodeType, refId: string): Promise<string | null> {
+    if (kind === 'pantone' || kind === 'ral') {
+      const rfId = await this.refFarveId(kind, refId, false)
+      if (!rfId) return null
+      const { data } = await this.sb.from('farve_noder').select('id').eq('type', 'reference').eq('reference_farve_id', rfId).eq('slettet', false).maybeSingle()
+      return data ? (data as { id: string }).id : null
+    }
     const { data } = await this.sb.from('farve_noder').select('id').eq('type', kind).eq(NODE_COL[kind], refId).eq('slettet', false).maybeSingle()
     return data ? (data as { id: string }).id : null
   }
@@ -424,11 +480,83 @@ export class SupabaseStore implements FarveStore {
   private async findOrCreateNode(kind: NodeType, refId: string, user: CurrentUser): Promise<string> {
     const existing = await this.findNodeId(kind, refId)
     if (existing) return existing
-    const row: Record<string, unknown> = { type: kind, created_by: user.id, created_by_navn: user.navn, updated_by: user.id }
-    row[NODE_COL[kind]] = refId
+    const row: Record<string, unknown> = { created_by: user.id, created_by_navn: user.navn, updated_by: user.id }
+    if (kind === 'pantone' || kind === 'ral') {
+      // Pantone: materialisér identitetsrækken lazy (RPC); RAL: refId er allerede reference_farve_id.
+      const rfId = await this.refFarveId(kind, refId, true)
+      if (!rfId) throw new Error('Kunne ikke bestemme referencefarve.')
+      // Dobbelttjek efter lazy-oprettelse (Pantone kan nu have fået sin knude).
+      const after = await this.sb.from('farve_noder').select('id').eq('type', 'reference').eq('reference_farve_id', rfId).eq('slettet', false).maybeSingle()
+      if (after.data) return (after.data as { id: string }).id
+      row.type = 'reference'
+      row.reference_farve_id = rfId
+    } else {
+      row.type = kind
+      row[NODE_COL[kind]] = refId
+    }
     const { data, error } = await this.sb.from('farve_noder').insert(row).select('id').single()
     if (error) throw error
     return (data as { id: string }).id
+  }
+
+  // ── Referencebiblioteker (RAL Classic m.fl.) ────────────────────────────
+
+  private _ralBibId: string | null | undefined
+  private async ralBibliotekId(): Promise<string | null> {
+    if (this._ralBibId !== undefined) return this._ralBibId
+    const { data } = await this.sb.from('farve_reference_biblioteker').select('id').eq('kode', 'ral_classic').maybeSingle()
+    this._ralBibId = data ? (data as { id: string }).id : null
+    return this._ralBibId
+  }
+
+  async searchRal(query: string): Promise<FarveValg[]> {
+    const q = query.trim()
+    if (!q) return []
+    const bibId = await this.ralBibliotekId()
+    if (!bibId) return []
+    const digits = q.match(/\d{3,4}/)?.[0] ?? null
+    const text = q.replace(/^\s*ral\s*/i, '').replace(/[%_]/g, '').trim()
+    let qb = this.sb.from('farve_reference_farver').select(REF_FARVE_SELECT).eq('bibliotek_id', bibId).eq('slettet', false).limit(60)
+    if (digits) qb = qb.or(`kode.eq.${digits},navn.ilike.%${text}%`)
+    else qb = qb.ilike('navn', `%${text}%`)
+    const { data, error } = await qb
+    if (error) return []
+    const rows = ((data as unknown as RefFarveRow[]) ?? []).slice()
+    // Eksakt kode-match først (fx "3020" → RAL 3020 øverst).
+    if (digits) rows.sort((a, b) => Number(b.kode === digits) - Number(a.kode === digits))
+    return rows.slice(0, 40).map(refRowToValg)
+  }
+
+  async getRalFarve(refId: string): Promise<ReferenceFarve | null> {
+    const { data } = await this.sb.from('farve_reference_farver').select(REF_FARVE_SELECT).eq('id', refId).eq('slettet', false).maybeSingle()
+    if (!data) return null
+    const r = data as unknown as RefFarveRow
+    return {
+      id: r.id,
+      bibliotek_kode: r.bibliotek?.kode ?? '',
+      bibliotek_navn: r.bibliotek?.navn ?? 'Reference',
+      kode: r.kode,
+      navn: r.navn,
+      hex: r.hex,
+      kilde: r.kilde ?? null,
+      kilde_version: r.kilde_version ?? null,
+    }
+  }
+
+  async listRalFarver(): Promise<ReferenceFarve[]> {
+    const bibId = await this.ralBibliotekId()
+    if (!bibId) return []
+    const { data } = await this.sb.from('farve_reference_farver').select(REF_FARVE_SELECT).eq('bibliotek_id', bibId).eq('slettet', false).order('kode').limit(1000)
+    return ((data as unknown as RefFarveRow[]) ?? []).map((r) => ({
+      id: r.id,
+      bibliotek_kode: r.bibliotek?.kode ?? 'ral_classic',
+      bibliotek_navn: r.bibliotek?.navn ?? 'RAL Classic',
+      kode: r.kode,
+      navn: r.navn,
+      hex: r.hex,
+      kilde: r.kilde ?? null,
+      kilde_version: r.kilde_version ?? null,
+    }))
   }
 
   async createRelationMellem(

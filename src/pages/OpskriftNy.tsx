@@ -5,6 +5,7 @@ import { getStore } from '../data'
 import { useAuth } from '../context/AuthContext'
 import type { CmykVaerdier, FarveValg } from '../lib/types'
 import { Swatch } from '../components/Swatch'
+import { farveHref } from '../lib/nav'
 import { ErrorState, SectionTitle } from '../components/common'
 
 function cmykFelt(v: string): number | null {
@@ -60,8 +61,7 @@ export default function OpskriftNy() {
         { printer: 'Canon Colorado M-series', medie: medie.trim() || null, printmode: printmode.trim() || null, profil_quickset: profil.trim() || null, cmyk, outputopskrift: output.trim() || null, note: note.trim() || null },
         user,
       )
-      const back = maalfarve.kind === 'pantone' ? `/farve/${maalfarve.refId}` : maalfarve.kind === 'source' ? `/folie/${maalfarve.refId}` : '/'
-      navigate(back, { replace: true })
+      navigate(farveHref(maalfarve) ?? '/', { replace: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke gemme printopskriften.')
     } finally {
