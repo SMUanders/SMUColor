@@ -3,24 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Save, Search, X } from 'lucide-react'
 import { getStore } from '../data'
 import { useAuth } from '../context/AuthContext'
-import type { FarveValg, ReferenceColor, SourceFolie } from '../lib/types'
+import type { FarveValg, ReferenceColor } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { FarveValgRow } from '../components/FarveValgRow'
+import { folieToValg } from '../lib/folie'
 import { SectionTitle, Spinner } from '../components/common'
 
 function refToValg(r: ReferenceColor): FarveValg {
   return { kind: 'pantone', refId: r.id, titel: r.pantone_name, undertekst: r.cp_name, hex: r.hex, vejledende: false, aktiv: true }
-}
-function folieToValg(f: SourceFolie): FarveValg {
-  return {
-    kind: 'source',
-    refId: f.source_variant_id,
-    titel: `${f.producent ?? ''} ${f.serie ?? ''} ${f.kode}`.replace(/\s+/g, ' ').trim(),
-    undertekst: f.producent_farvenavn ?? f.variant_navn,
-    hex: f.digital_srgb,
-    vejledende: true,
-    aktiv: f.aktiv,
-  }
 }
 
 /** Søg + vælg én farve på tværs af paletter. Udgåede Source-folier vises, men kan ikke vælges. */
@@ -148,7 +138,7 @@ export default function RelationNy() {
       const back = a.kind === 'pantone' ? `/farve/${a.refId}` : a.kind === 'source' ? `/folie/${a.refId}` : '/'
       navigate(back, { replace: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kunne ikke gemme relationen.')
+      setError(e instanceof Error ? e.message : 'Kunne ikke gemme farvematchet.')
     } finally {
       setSaving(false)
     }
@@ -159,7 +149,7 @@ export default function RelationNy() {
       <Link to="/" className="smu-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
         <ArrowLeft size={15} /> Tilbage
       </Link>
-      <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 18px' }}>Opret farverelation</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 18px' }}>Opret farvematch</h1>
 
       {error && (
         <div style={{ background: 'var(--color-red-soft)', color: 'var(--color-red-deep)', borderRadius: 8, padding: '10px 12px', fontSize: 13, fontWeight: 700, marginBottom: 16 }}>
@@ -182,7 +172,7 @@ export default function RelationNy() {
       {/* Trin 3 — note */}
       <section style={{ marginBottom: 24 }}>
         <SectionTitle>3 · Note (valgfri)</SectionTitle>
-        <textarea ref={noteRef} className="smu-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Fri note om relationen…" />
+        <textarea ref={noteRef} className="smu-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Fri note om farvematchet…" />
       </section>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

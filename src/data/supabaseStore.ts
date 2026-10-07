@@ -17,6 +17,8 @@ import type {
   VerificationHistory,
 } from '../lib/types'
 
+import { folieToValg, parseFolieQuery } from '../lib/folie'
+
 interface NodeRow {
   id: string
   type: NodeType
@@ -344,9 +346,24 @@ export class SupabaseStore implements FarveStore {
   async searchSourceFolie(query: string): Promise<SourceFolie[]> {
     const q = query.trim()
     if (!q) return []
-    const { data, error } = await this.sb.rpc('farve_source_foliefarver', { _soeg: q, _variant_id: null, _limit: 40 })
+    const { serie, kode, rest } = parseFolieQuery(q)
+    const term = kode || rest || serie || q
+    const { data, error } = await this.sb.rpc('farve_source_foliefarver', { _soeg: term, _variant_id: null, _limit: 80 })
     if (error) return []
-    return (data as SourceFolie[]) ?? []
+    let list = (data as SourceFolie[]) ?? []
+    if (serie) {
+      const s = serie.replace(/\s+/g, '')
+      list = list.filter(
+        (f) => (f.serie ?? '').replace(/\s+/g, '').toLowerCase().includes(s) || (f.produkt_navn ?? '').toLowerCase().includes(s),
+      )
+    }
+    if (kode) {
+      const k = kode
+      list = list.filter((f) => f.kode.toLowerCase().includes(k))
+      // Eksakt kode-match først (præcist produkt/kode-match prioriteres).
+      list = list.slice().sort((a, b) => Number(b.kode.toLowerCase() === k) - Number(a.kode.toLowerCase() === k))
+    }
+    return list.slice(0, 40)
   }
 
   async getSourceFolie(variantId: string): Promise<SourceFolie | null> {
@@ -362,7 +379,8 @@ export class SupabaseStore implements FarveStore {
     }
     if (node.type === 'source' && node.source_variant_id) {
       const f = await this.getSourceFolie(node.source_variant_id)
-      return { kind: 'source', refId: node.source_variant_id, titel: f ? `${f.producent ?? ''} ${f.serie ?? ''} ${f.kode}`.replace(/\s+/g, ' ').trim() : 'Source-folie', undertekst: f?.producent_farvenavn ?? f?.variant_navn ?? null, hex: f?.digital_srgb ?? null, vejledende: true, aktiv: f?.aktiv ?? false }
+      if (f) return folieToValg(f)
+      return { kind: 'source', refId: node.source_variant_id, titel: 'Udgået folie', undertekst: null, hex: null, vejledende: true, aktiv: false }
     }
     if (node.material_color_id) {
       const { data } = await this.sb.from(T.mc).select('*').eq('id', node.material_color_id).maybeSingle()

@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Layers, Link2, Plus } from 'lucide-react'
+import { ArrowLeft, Layers, Plus } from 'lucide-react'
 import { getStore } from '../data'
-import type { FarveValg, MatchEnriched, ReferenceColor, RelationView } from '../lib/types'
+import type { FarveValg, ReferenceColor, RelationView } from '../lib/types'
 import { useAuth } from '../context/AuthContext'
 import { ReferenceCard } from '../components/ReferenceCard'
-import { MatchCard } from '../components/MatchCard'
 import { FarveValgRow } from '../components/FarveValgRow'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
-import { STATUS_ORDER } from '../lib/status'
 
 export default function ColorDetail() {
   const { refId } = useParams<{ refId: string }>()
@@ -19,25 +17,18 @@ export default function ColorDetail() {
   const canEdit = Boolean(user?.erRedaktoer)
 
   const [ref, setRef] = useState<ReferenceColor | null | undefined>(undefined)
-  const [matches, setMatches] = useState<MatchEnriched[] | null>(null)
   const [relations, setRelations] = useState<RelationView[] | null>(null)
 
   useEffect(() => {
     if (!refId) return
     setRef(undefined)
-    setMatches(null)
     setRelations(null)
     store.getReference(refId).then(setRef)
-    store.getMatchesForReference(refId).then(setMatches)
     store.getRelationsForColor('pantone', refId).then(setRelations)
   }, [refId, store])
 
   if (ref === undefined) return <Spinner label="Indlæser farve…" />
   if (ref === null) return <ErrorState title="Farven blev ikke fundet">Referencen findes ikke i Color Bridge-biblioteket.</ErrorState>
-
-  const sorted = (matches ?? [])
-    .slice()
-    .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
 
   const pantoneValg: FarveValg = {
     kind: 'pantone',
@@ -62,41 +53,7 @@ export default function ColorDetail() {
 
       <ReferenceCard color={ref} />
 
-      <div style={{ marginTop: 28 }}>
-        <SectionTitle
-          right={
-            canEdit ? (
-              <Link
-                to="/match/ny"
-                state={{ referenceColorId: ref.id, referenceName: ref.pantone_name }}
-                className="smu-btn-primary"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}
-              >
-                <Plus size={15} /> Opret match
-              </Link>
-            ) : undefined
-          }
-        >
-          SMU-matches
-        </SectionTitle>
-
-        {matches === null ? (
-          <Spinner />
-        ) : sorted.length === 0 ? (
-          <EmptyState icon={Layers} title="Ingen SMU-matches endnu">
-            Referencen ovenfor (spot + CP) er ikke det samme som et verificeret match.
-            {canEdit ? ' Opret et forslag for at begynde at opbygge Signmeups viden om denne farve.' : ' En redaktør kan oprette et match.'}
-          </EmptyState>
-        ) : (
-          <div style={{ display: 'grid', gap: 14 }}>
-            {sorted.map((m) => (
-              <MatchCard key={m.id} match={m} canEdit={canEdit} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Relationer (V1.2 — palette-neutralt) */}
+      {/* Farvematches (palette-neutralt) */}
       <div style={{ marginTop: 28 }}>
         <SectionTitle
           right={
@@ -104,21 +61,22 @@ export default function ColorDetail() {
               <Link
                 to="/relation/ny"
                 state={{ fra: pantoneValg }}
-                className="smu-btn-secondary"
+                className="smu-btn-primary"
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}
               >
-                <Link2 size={15} /> Opret relation
+                <Plus size={15} /> Opret farvematch
               </Link>
             ) : undefined
           }
         >
-          Relationer
+          Farvematches
         </SectionTitle>
         {relations === null ? (
           <Spinner />
         ) : relations.length === 0 ? (
-          <EmptyState icon={Link2} title="Ingen relationer endnu">
-            {canEdit ? 'Forbind denne farve med en folie eller en anden farve.' : 'En redaktør kan oprette en relation.'}
+          <EmptyState icon={Layers} title="Ingen farvematches endnu">
+            Referencen ovenfor (spot + CP) er ikke det samme som et verificeret match.
+            {canEdit ? ' Match denne farve med en folie eller en anden farve for at begynde.' : ' En redaktør kan oprette et farvematch.'}
           </EmptyState>
         ) : (
           <div className="smu-card" style={{ overflow: 'hidden' }}>
