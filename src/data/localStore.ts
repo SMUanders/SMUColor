@@ -1,6 +1,8 @@
 // Lokal dev-adapter: seed-data + localStorage. Bruges KUN når Supabase ikke er
 // konfigureret (lokal udvikling / demo). Aldrig den endelige dataløsning.
 import type {
+  CmykVaerdier,
+  CreatePrintopskriftInput,
   CurrentUser,
   FarveValg,
   ImportIssue,
@@ -10,12 +12,19 @@ import type {
   Material,
   MaterialColor,
   NodeType,
+  Printopskrift,
+  PrintopskriftView,
   ProductionContext,
   ReferenceColor,
   RelationView,
+  SourceBibliotek,
   SourceFolie,
   VerificationHistory,
 } from '../lib/types'
+
+interface LocalOpskrift extends Printopskrift {
+  slettet: boolean
+}
 
 interface LocalNode {
   id: string
@@ -60,6 +69,7 @@ interface Mutable {
   issues: ImportIssue[]
   noder: LocalNode[]
   relationer: LocalRelation[]
+  printopskrifter: LocalOpskrift[]
 }
 
 function now(): string {
@@ -81,6 +91,7 @@ export class LocalStore implements FarveStore {
     issues: [],
     noder: [],
     relationer: [],
+    printopskrifter: [],
   }
   private ready: Promise<void>
 
@@ -99,6 +110,7 @@ export class LocalStore implements FarveStore {
       // Bagudkompat: ældre gemt data mangler V1.2-felter.
       this.data.noder ??= []
       this.data.relationer ??= []
+      this.data.printopskrifter ??= []
       return
     }
     // Første kørsel: seed SMU-viden fra genererede filer.
@@ -117,6 +129,7 @@ export class LocalStore implements FarveStore {
       issues: issues.default as unknown as ImportIssue[],
       noder: [],
       relationer: [],
+      printopskrifter: [],
     }
     this.persist()
   }
@@ -517,5 +530,76 @@ export class LocalStore implements FarveStore {
     this.data.relationer.push(rel)
     this.persist()
     return { id: rel.id }
+  }
+
+  // ── V1.3 (lokal dev): Source kun i Supabase; printopskrifter i localStorage ──
+
+  async listBiblioteker(): Promise<SourceBibliotek[]> {
+    return []
+  }
+  async listSerieVarianter(): Promise<SourceFolie[]> {
+    return []
+  }
+
+  private opskriftTilView(o: LocalOpskrift): PrintopskriftView {
+    const node = this.data.noder.find((n) => n.id === o.node_id)
+    return { opskrift: o, maalfarve: node ? this.localNodeToValg(node) : { kind: 'lokal' as NodeType, refId: '', titel: 'Ukendt', aktiv: false } }
+  }
+
+  async getPrintopskrifterForColor(kind: NodeType, refId: string): Promise<Printopskrift[]> {
+    await this.ready
+    const node = this.data.noder.find((n) => n.type === kind && nodeRef(n) === refId && !n.slettet)
+    if (!node) return []
+    return this.data.printopskrifter.filter((o) => o.node_id === node.id && !o.slettet).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+
+  async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput): Promise<{ id: string }> {
+    await this.ready
+    const nodeId = this.localFindOrCreateNode(color.kind, color.refId)
+    const o: LocalOpskrift = {
+      id: uid(),
+      node_id: nodeId,
+      printer: input.printer ?? 'Canon Colorado M-series',
+      medie: input.medie ?? null,
+      printmode: input.printmode ?? null,
+      profil_quickset: input.profil_quickset ?? null,
+      kanalvaerdier: input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null,
+      cmyk_c: input.cmyk?.c ?? null,
+      cmyk_m: input.cmyk?.m ?? null,
+      cmyk_y: input.cmyk?.y ?? null,
+      cmyk_k: input.cmyk?.k ?? null,
+      outputopskrift: input.outputopskrift ?? null,
+      note: input.note ?? null,
+      status: 'forslag',
+      verified_by_navn: null,
+      verified_at: null,
+      verification_method: null,
+      verification_comment: null,
+      created_at: now(),
+      slettet: false,
+    }
+    this.data.printopskrifter.push(o)
+    this.persist()
+    return { id: o.id }
+  }
+
+  async listPrintopskrifter(): Promise<PrintopskriftView[]> {
+    await this.ready
+    return this.data.printopskrifter
+      .filter((o) => !o.slettet)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((o) => this.opskriftTilView(o))
+  }
+
+  async searchPrintopskriftByCmyk(cmyk: CmykVaerdier): Promise<PrintopskriftView[]> {
+    await this.ready
+    return this.data.printopskrifter
+      .filter((o) => !o.slettet && o.cmyk_c === cmyk.c && o.cmyk_m === cmyk.m && o.cmyk_y === cmyk.y && o.cmyk_k === cmyk.k)
+      .map((o) => this.opskriftTilView(o))
+  }
+
+  async searchReferenceByCmyk(cmyk: CmykVaerdier): Promise<ReferenceColor[]> {
+    await this.ready
+    return this.references.filter((r) => r.cmyk_c === cmyk.c && r.cmyk_m === cmyk.m && r.cmyk_y === cmyk.y && r.cmyk_k === cmyk.k).slice(0, 30)
   }
 }

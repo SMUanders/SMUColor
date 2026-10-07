@@ -7,6 +7,9 @@ import Home from './pages/Home'
 import ColorDetail from './pages/ColorDetail'
 import FolieDetail from './pages/FolieDetail'
 import RelationNy from './pages/RelationNy'
+import PaletteSerie from './pages/PaletteSerie'
+import Produktion from './pages/Produktion'
+import OpskriftNy from './pages/OpskriftNy'
 import MatchDetail from './pages/MatchDetail'
 import MatchEdit from './pages/MatchEdit'
 import Admin from './pages/Admin'
@@ -44,6 +47,17 @@ export default function App() {
           element={
             <RequireRedaktoer>
               <RelationNy />
+            </RequireRedaktoer>
+          }
+        />
+        {/* V1.3 — palette-browsing + produktion */}
+        <Route path="/bibliotek/:serie" element={<PaletteSerie />} />
+        <Route path="/produktion" element={<Produktion />} />
+        <Route
+          path="/opskrift/ny"
+          element={
+            <RequireRedaktoer>
+              <OpskriftNy />
             </RequireRedaktoer>
           }
         />

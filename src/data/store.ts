@@ -3,6 +3,8 @@
 //   supabaseStore — den rigtige, delte backend
 // UI'et kender kun dette interface.
 import type {
+  CmykVaerdier,
+  CreatePrintopskriftInput,
   CurrentUser,
   ImportIssue,
   Match,
@@ -12,9 +14,12 @@ import type {
   Material,
   MaterialColor,
   NodeType,
+  Printopskrift,
+  PrintopskriftView,
   ProductionContext,
   ReferenceColor,
   RelationView,
+  SourceBibliotek,
   SourceFolie,
   VerificationHistory,
 } from '../lib/types'
@@ -117,4 +122,24 @@ export interface FarveStore {
     note: string | null,
     user: CurrentUser,
   ): Promise<{ id: string }>
+
+  // ── V1.3: palette-browsing + printopskrifter + CMYK-søgning ────────────
+  /** Source-biblioteker/serier til browsing. [] uden Supabase. */
+  listBiblioteker(): Promise<SourceBibliotek[]>
+  /** Aktive swatches i en serie (fx "751C"). [] uden Supabase. */
+  listSerieVarianter(serie: string): Promise<SourceFolie[]>
+  /** Printopskrifter for en farve. */
+  getPrintopskrifterForColor(kind: NodeType, refId: string): Promise<Printopskrift[]>
+  /** Opret printopskrift (status 'forslag') for en farve; lazy find-or-create af knude. */
+  createPrintopskrift(
+    color: { kind: NodeType; refId: string },
+    input: CreatePrintopskriftInput,
+    user: CurrentUser,
+  ): Promise<{ id: string }>
+  /** Alle printopskrifter (Canon/ONYX-området), nyeste først. */
+  listPrintopskrifter(): Promise<PrintopskriftView[]>
+  /** EKSAKT CMYK-søgning i registrerede printopskrifter. */
+  searchPrintopskriftByCmyk(cmyk: CmykVaerdier): Promise<PrintopskriftView[]>
+  /** EKSAKT CMYK-opslag i Pantone-reference (CP) — referenceinfo, ikke opskrift. */
+  searchReferenceByCmyk(cmyk: CmykVaerdier): Promise<ReferenceColor[]>
 }

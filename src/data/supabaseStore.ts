@@ -1,6 +1,8 @@
 // Supabase-adapter — den rigtige, delte backend. Samme interface som localStore.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
+  CmykVaerdier,
+  CreatePrintopskriftInput,
   CurrentUser,
   FarveValg,
   ImportIssue,
@@ -10,9 +12,12 @@ import type {
   Material,
   MaterialColor,
   NodeType,
+  Printopskrift,
+  PrintopskriftView,
   ProductionContext,
   ReferenceColor,
   RelationView,
+  SourceBibliotek,
   SourceFolie,
   VerificationHistory,
 } from '../lib/types'
@@ -448,5 +453,92 @@ export class SupabaseStore implements FarveStore {
       throw error
     }
     return { id: (data as { id: string }).id }
+  }
+
+  // ── V1.3: palette-browsing + printopskrifter + CMYK ─────────────────────
+
+  async listBiblioteker(): Promise<SourceBibliotek[]> {
+    const { data, error } = await this.sb.rpc('farve_source_biblioteker')
+    if (error) return []
+    return (data as SourceBibliotek[]) ?? []
+  }
+
+  async listSerieVarianter(serie: string): Promise<SourceFolie[]> {
+    const { data, error } = await this.sb.rpc('farve_source_serie_varianter', { _serie: serie, _limit: 500 })
+    if (error) return []
+    return (data as SourceFolie[]) ?? []
+  }
+
+  private async enrichOpskrifter(list: Printopskrift[]): Promise<PrintopskriftView[]> {
+    if (list.length === 0) return []
+    const nodeIds = [...new Set(list.map((o) => o.node_id))]
+    const { data: nodes } = await this.sb.from('farve_noder').select('*').in('id', nodeIds)
+    const valgMap = new Map<string, FarveValg>()
+    for (const n of (nodes as NodeRow[] | null) ?? []) valgMap.set(n.id, await this.nodeToFarveValg(n))
+    return list.map((o) => ({ opskrift: o, maalfarve: valgMap.get(o.node_id) ?? { kind: 'lokal', refId: '', titel: 'Ukendt', aktiv: false } }))
+  }
+
+  async getPrintopskrifterForColor(kind: NodeType, refId: string): Promise<Printopskrift[]> {
+    const nodeId = await this.findNodeId(kind, refId)
+    if (!nodeId) return []
+    const { data } = await this.sb.from('farve_printopskrift').select('*').eq('node_id', nodeId).eq('slettet', false).order('created_at', { ascending: false })
+    return (data as Printopskrift[]) ?? []
+  }
+
+  async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput, user: CurrentUser): Promise<{ id: string }> {
+    const nodeId = await this.findOrCreateNode(color.kind, color.refId, user)
+    const kanal = input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null
+    const row = {
+      node_id: nodeId,
+      printer: input.printer ?? 'Canon Colorado M-series',
+      medie: input.medie ?? null,
+      printmode: input.printmode ?? null,
+      profil_quickset: input.profil_quickset ?? null,
+      kanalvaerdier: kanal,
+      cmyk_c: input.cmyk?.c ?? null,
+      cmyk_m: input.cmyk?.m ?? null,
+      cmyk_y: input.cmyk?.y ?? null,
+      cmyk_k: input.cmyk?.k ?? null,
+      outputopskrift: input.outputopskrift ?? null,
+      note: input.note ?? null,
+      status: 'forslag' as MatchStatus,
+      created_by: user.id,
+      created_by_navn: user.navn,
+      updated_by: user.id,
+    }
+    const { data, error } = await this.sb.from('farve_printopskrift').insert(row).select('id').single()
+    if (error) throw error
+    return { id: (data as { id: string }).id }
+  }
+
+  async listPrintopskrifter(): Promise<PrintopskriftView[]> {
+    const { data } = await this.sb.from('farve_printopskrift').select('*').eq('slettet', false).order('created_at', { ascending: false }).limit(200)
+    return this.enrichOpskrifter((data as Printopskrift[]) ?? [])
+  }
+
+  async searchPrintopskriftByCmyk(cmyk: CmykVaerdier): Promise<PrintopskriftView[]> {
+    const { data } = await this.sb
+      .from('farve_printopskrift')
+      .select('*')
+      .eq('slettet', false)
+      .eq('cmyk_c', cmyk.c)
+      .eq('cmyk_m', cmyk.m)
+      .eq('cmyk_y', cmyk.y)
+      .eq('cmyk_k', cmyk.k)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    return this.enrichOpskrifter((data as Printopskrift[]) ?? [])
+  }
+
+  async searchReferenceByCmyk(cmyk: CmykVaerdier): Promise<ReferenceColor[]> {
+    const { data } = await this.sb
+      .from(T.ref)
+      .select('*')
+      .eq('cmyk_c', cmyk.c)
+      .eq('cmyk_m', cmyk.m)
+      .eq('cmyk_y', cmyk.y)
+      .eq('cmyk_k', cmyk.k)
+      .limit(30)
+    return (data as ReferenceColor[]) ?? []
   }
 }

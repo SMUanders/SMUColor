@@ -217,3 +217,60 @@ export interface RelationView {
   created_at: string
   modpart: FarveValg
 }
+
+/** Et Source-bibliotek/serie til palette-browsing (via kontrakt). */
+export interface SourceBibliotek {
+  producent: string | null
+  produktlinje: string | null
+  produkt_navn: string | null
+  serie: string | null
+  kategori_kode: string | null
+  antal_varianter: number
+  m_digital_farve: number
+}
+
+export interface CmykVaerdier {
+  c: number
+  m: number
+  y: number
+  k: number
+}
+
+/** Color-ejet printopskrift (farve → produktionsviden). Flere pr. farve. */
+export interface Printopskrift {
+  id: string
+  node_id: string
+  printer: string | null
+  medie: string | null
+  printmode: string | null
+  profil_quickset: string | null
+  kanalvaerdier: Record<string, number> | null
+  cmyk_c: number | null
+  cmyk_m: number | null
+  cmyk_y: number | null
+  cmyk_k: number | null
+  outputopskrift: string | null
+  note: string | null
+  status: MatchStatus
+  verified_by_navn: string | null
+  verified_at: string | null
+  verification_method: string | null
+  verification_comment: string | null
+  created_at: string
+}
+
+export interface CreatePrintopskriftInput {
+  printer: string | null
+  medie: string | null
+  printmode: string | null
+  profil_quickset: string | null
+  cmyk: CmykVaerdier | null
+  outputopskrift: string | null
+  note: string | null
+}
+
+/** En printopskrift + dens målfarve (til Canon-området og CMYK-søgning). */
+export interface PrintopskriftView {
+  opskrift: Printopskrift
+  maalfarve: FarveValg
+}

@@ -6,6 +6,7 @@ import type { FarveValg, ReferenceColor, RelationView } from '../lib/types'
 import { useAuth } from '../context/AuthContext'
 import { ReferenceCard } from '../components/ReferenceCard'
 import { FarveValgRow } from '../components/FarveValgRow'
+import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
 
@@ -98,6 +99,8 @@ export default function ColorDetail() {
           </div>
         )}
       </div>
+
+      <PrintopskriftSektion farve={pantoneValg} canEdit={canEdit} />
     </div>
   )
 }

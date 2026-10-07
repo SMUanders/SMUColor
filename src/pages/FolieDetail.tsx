@@ -7,6 +7,7 @@ import type { FarveValg, RelationView, SourceFolie } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { StatusBadge } from '../components/StatusBadge'
 import { FarveValgRow } from '../components/FarveValgRow'
+import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
 import { folieToValg } from '../lib/folie'
 import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
 
@@ -111,6 +112,8 @@ export default function FolieDetail() {
           </div>
         )}
       </div>
+
+      <PrintopskriftSektion farve={valg} canEdit={canEdit} />
     </div>
   )
 }
