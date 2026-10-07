@@ -26,6 +26,7 @@ Afvigelser fra standarden er dokumenteret nederst.
 - `farve_production_context` — printer/medie/printmode/profil/quick_set/output (Canon Colorado M-series / ONYX).
 - `farve_verification_history` — append-only historik.
 - `farve_import_issues` — tvetydige legacy-rækker til manuel gennemgang.
+- **Referencelag (V1.4):** `farve_reference_biblioteker` (pantone · ral_classic) + `farve_reference_farver` (generisk referencefarve). Pantone = autoritativ backing via `pantone_color_id` → `farve_reference_colors` (materialiseres **lazy** via RPC `farve_reference_farve_for_pantone`); RAL Classic = 217 farver med inline kode/navn/hex (vejledende). `farve_noder.type` = `reference | source | lokal` (`reference_farve_id` for både Pantone og RAL). Reference-tabeller har kun `select`-RLS; skrivning via seed/RPC.
 
 ## Data-arkitektur
 - Storage bag interface (`src/data/store.ts`) med to adaptere:
@@ -52,6 +53,13 @@ ikke `db push`). 7 `farve_`-tabeller oprettet, ingen eksisterende tabeller ændr
 Data i DB: 2.390 reference · 18 materialer · 118 materialefarver · 111 forslag ·
 0 verificeret · 10 issues. `.env.local` (gitignored) peger appen på projektet.
 Netlify: sæt samme to `VITE_`-vars i UI før deploy.
+
+**V1.4 (2026-10-07):** Generisk referencelag anvendt LIVE via canonical hub
+(`smu-os-v2/supabase/migrations/20261007130000_farve_reference_generisk.sql`,
+`supabase db push --linked`). `farve_reference_biblioteker` (2) +
+`farve_reference_farver` (Pantone-identitet lazy + 217 RAL Classic) oprettet;
+`farve_noder` generaliseret til `type reference|source|lokal`. Pantone-backing
+(2.390) urørt. Eksisterende pilot-knude migreret uden tab af relation/opskrift.
 
 ## Opsætning mod delt Supabase (hvis nulstilling nødvendig) — KRÆVER MENNESKE
 Det delte prod-projekt er `smu-os-v2` (ref `ggnnfzhhqhwmugubfxuj`, West EU). Skema
