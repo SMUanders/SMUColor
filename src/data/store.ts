@@ -3,6 +3,7 @@
 //   supabaseStore — den rigtige, delte backend
 // UI'et kender kun dette interface.
 import type {
+  AktivitetItem,
   CmykVaerdier,
   CreatePrintopskriftInput,
   CurrentUser,
@@ -89,6 +90,12 @@ export interface FarveStore {
 
   getReference(id: string): Promise<ReferenceColor | null>
   findReferenceByCode(code: string): Promise<ReferenceColor | null>
+
+  // ── V1.5 cockpit (genbruger created_by/updated_by — ingen ny tracking) ──
+  /** Mit seneste arbejde: farvematches + printopskrifter jeg har oprettet/redigeret. */
+  mitSenesteArbejde(userId: string, limit: number): Promise<AktivitetItem[]>
+  /** Seneste aktivitet i Color på tværs af kolleger. */
+  senesteAktivitet(limit: number): Promise<AktivitetItem[]>
 
   // ── Referencebiblioteker (RAL Classic m.fl.) — samme niveau som Pantone ──
   /** Søg RAL Classic på kode ("3020", "RAL 3020") eller navn. [] uden Supabase. */

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Palette, Printer, Search, X } from 'lucide-react'
+import { Clock, Palette, Printer, Search, Users, X } from 'lucide-react'
 import { getStore } from '../data'
 import type { SearchResult } from '../data/store'
-import type { FarveValg, PrintopskriftView, ReferenceColor, SourceBibliotek, SourceFolie } from '../lib/types'
+import type { AktivitetItem, FarveValg, PrintopskriftView, ReferenceColor, SourceBibliotek, SourceFolie } from '../lib/types'
+import { useAuth } from '../context/AuthContext'
 import { Swatch } from '../components/Swatch'
 import { FarveValgRow } from '../components/FarveValgRow'
+import { AktivitetRow } from '../components/AktivitetRow'
 import { StatusBadge } from '../components/StatusBadge'
 import { folieToValg } from '../lib/folie'
 import { farveHref } from '../lib/nav'
@@ -218,11 +220,24 @@ function Resultater({ fund, navigate }: { fund: Fund; navigate: (to: string) => 
 
 function Forside({ navigate }: { navigate: (to: string) => void }) {
   const store = getStore()
+  const { user } = useAuth()
   const [biblioteker, setBiblioteker] = useState<SourceBibliotek[] | null>(null)
+  const [mitArbejde, setMitArbejde] = useState<AktivitetItem[] | null>(null)
+  const [aktivitet, setAktivitet] = useState<AktivitetItem[] | null>(null)
 
   useEffect(() => {
     store.listBiblioteker().then(setBiblioteker)
   }, [store])
+
+  useEffect(() => {
+    let aktiv = true
+    if (user?.id) store.mitSenesteArbejde(user.id, 6).then((r) => aktiv && setMitArbejde(r))
+    else setMitArbejde([])
+    store.senesteAktivitet(6).then((r) => aktiv && setAktivitet(r))
+    return () => {
+      aktiv = false
+    }
+  }, [store, user?.id])
 
   // Grupper serier pr. produktlinje (fx ORACAL → 651/751C/970…).
   const grupper = new Map<string, SourceBibliotek[]>()
@@ -235,6 +250,44 @@ function Forside({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <div style={{ display: 'grid', gap: 28 }}>
+      {/* 1 · Mit seneste arbejde */}
+      <section>
+        <SectionTitle>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <Clock size={15} /> Mit seneste arbejde
+          </span>
+        </SectionTitle>
+        {mitArbejde === null ? (
+          <Spinner />
+        ) : mitArbejde.length === 0 ? (
+          <div className="smu-card" style={{ padding: '16px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+            Du har ikke oprettet eller redigeret farvematches eller printopskrifter endnu.
+          </div>
+        ) : (
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {mitArbejde.map((it, i) => (
+              <AktivitetRow key={`${it.slags}-${it.id}`} item={it} border={i > 0} onClick={() => navigate(it.href)} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 2 · Seneste aktivitet i Color */}
+      {aktivitet && aktivitet.length > 0 && (
+        <section>
+          <SectionTitle>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <Users size={15} /> Seneste aktivitet i Color
+            </span>
+          </SectionTitle>
+          <div className="smu-card" style={{ overflow: 'hidden' }}>
+            {aktivitet.map((it, i) => (
+              <AktivitetRow key={`akt-${it.slags}-${it.id}`} item={it} border={i > 0} visAf onClick={() => navigate(it.href)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <SectionTitle>Farvebiblioteker</SectionTitle>
         {store.mode === 'supabase' && (

@@ -1,6 +1,7 @@
 // Supabase-adapter — den rigtige, delte backend. Samme interface som localStore.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
+  AktivitetItem,
   CmykVaerdier,
   CreatePrintopskriftInput,
   CurrentUser,
@@ -24,6 +25,8 @@ import type {
 } from '../lib/types'
 
 import { folieToValg, parseFolieQuery } from '../lib/folie'
+import { farveHref } from '../lib/nav'
+import { formatCmyk } from '../lib/cmyk'
 
 // DB-knude: type = 'reference' | 'source' | 'lokal'. Referencefarver (Pantone
 // OG RAL) hænger på reference_farve_id → farve_reference_farver. Pantone-rækken
@@ -712,5 +715,69 @@ export class SupabaseStore implements FarveStore {
       .eq('cmyk_k', cmyk.k)
       .limit(30)
     return (data as ReferenceColor[]) ?? []
+  }
+
+  // ── V1.5 cockpit ────────────────────────────────────────────────────────
+
+  private async relationItems(mineId: string | null, limit: number): Promise<AktivitetItem[]> {
+    let q = this.sb.from('farve_relationer').select('id,status,updated_at,created_by_navn,fra_node_id,til_node_id').eq('slettet', false)
+    q = mineId ? q.or(`created_by.eq.${mineId},updated_by.eq.${mineId}`) : q.not('created_by', 'is', null)
+    const { data } = await q.order('updated_at', { ascending: false }).limit(limit)
+    const rels = (data as { id: string; status: MatchStatus; updated_at: string; created_by_navn: string | null; fra_node_id: string; til_node_id: string }[] | null) ?? []
+    if (!rels.length) return []
+    const nodeIds = [...new Set(rels.flatMap((r) => [r.fra_node_id, r.til_node_id]))]
+    const { data: nodes } = await this.sb.from('farve_noder').select('*').in('id', nodeIds)
+    const valg = new Map<string, FarveValg>()
+    for (const n of (nodes as NodeRow[] | null) ?? []) valg.set(n.id, await this.nodeToFarveValg(n))
+    return rels.map((r) => {
+      const fra = valg.get(r.fra_node_id)
+      const til = valg.get(r.til_node_id)
+      return {
+        slags: 'farvematch' as const,
+        id: r.id,
+        titel: fra?.titel ?? 'Farve',
+        undertekst: `Farvematch → ${til?.titel ?? 'farve'}`,
+        hex: fra?.hex ?? null,
+        status: r.status,
+        href: (fra && farveHref(fra)) || '/',
+        af: r.created_by_navn,
+        tidspunkt: r.updated_at,
+      }
+    })
+  }
+
+  private async opskriftItems(mineId: string | null, limit: number): Promise<AktivitetItem[]> {
+    let q = this.sb.from('farve_printopskrift').select('*').eq('slettet', false)
+    q = mineId ? q.or(`created_by.eq.${mineId},updated_by.eq.${mineId}`) : q.not('created_by', 'is', null)
+    const { data } = await q.order('updated_at', { ascending: false }).limit(limit)
+    const views = await this.enrichOpskrifter((data as Printopskrift[]) ?? [])
+    return views.map((v) => {
+      const o = v.opskrift
+      const cmyk = o.cmyk_c != null && o.cmyk_m != null && o.cmyk_y != null && o.cmyk_k != null ? formatCmyk({ c: o.cmyk_c, m: o.cmyk_m, y: o.cmyk_y, k: o.cmyk_k }) : null
+      return {
+        slags: 'printopskrift' as const,
+        id: o.id,
+        titel: v.maalfarve.titel,
+        undertekst: ['Printopskrift', cmyk, o.medie].filter(Boolean).join(' · '),
+        hex: v.maalfarve.hex ?? null,
+        status: o.status,
+        href: `/opskrift/${o.id}`,
+        af: o.created_by_navn ?? null,
+        tidspunkt: o.updated_at ?? o.created_at,
+      }
+    })
+  }
+
+  private async cockpitFeed(mineId: string | null, limit: number): Promise<AktivitetItem[]> {
+    const [r, o] = await Promise.all([this.relationItems(mineId, limit), this.opskriftItems(mineId, limit)])
+    return [...r, ...o].sort((a, b) => b.tidspunkt.localeCompare(a.tidspunkt)).slice(0, limit)
+  }
+
+  async mitSenesteArbejde(userId: string, limit: number): Promise<AktivitetItem[]> {
+    return this.cockpitFeed(userId, limit)
+  }
+
+  async senesteAktivitet(limit: number): Promise<AktivitetItem[]> {
+    return this.cockpitFeed(null, limit)
   }
 }

@@ -274,7 +274,25 @@ export interface Printopskrift {
   verified_at: string | null
   verification_method: string | null
   verification_comment: string | null
+  created_by_navn?: string | null
   created_at: string
+  updated_at?: string
+}
+
+/** Et element i cockpittets "Mit seneste arbejde" / "Seneste aktivitet". */
+export interface AktivitetItem {
+  slags: 'farvematch' | 'printopskrift'
+  id: string
+  titel: string
+  undertekst: string | null
+  hex: string | null
+  status: MatchStatus
+  /** Hvor elementet åbnes. */
+  href: string
+  /** Hvem der oprettede/ændrede (til "Seneste aktivitet"). */
+  af: string | null
+  /** updated_at (ISO) til sortering/visning. */
+  tidspunkt: string
 }
 
 export interface CreatePrintopskriftInput {

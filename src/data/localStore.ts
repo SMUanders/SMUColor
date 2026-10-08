@@ -1,6 +1,7 @@
 // Lokal dev-adapter: seed-data + localStorage. Bruges KUN når Supabase ikke er
 // konfigureret (lokal udvikling / demo). Aldrig den endelige dataløsning.
 import type {
+  AktivitetItem,
   CmykVaerdier,
   CreatePrintopskriftInput,
   CurrentUser,
@@ -58,6 +59,8 @@ function nodeRef(n: LocalNode): string | null {
   }
 }
 import { scoreMaterialColor, scoreReference } from '../lib/search'
+import { farveHref } from '../lib/nav'
+import { formatCmyk } from '../lib/cmyk'
 import type {
   CreateMatchInput,
   CreateMaterialColorInput,
@@ -658,5 +661,57 @@ export class LocalStore implements FarveStore {
   async searchReferenceByCmyk(cmyk: CmykVaerdier): Promise<ReferenceColor[]> {
     await this.ready
     return this.references.filter((r) => r.cmyk_c === cmyk.c && r.cmyk_m === cmyk.m && r.cmyk_y === cmyk.y && r.cmyk_k === cmyk.k).slice(0, 30)
+  }
+
+  // ── V1.5 cockpit (lokal dev fører ikke created_by — viser seneste for alle) ──
+
+  private localFeed(limit: number): AktivitetItem[] {
+    const rel: AktivitetItem[] = this.data.relationer
+      .filter((r) => !r.slettet)
+      .map((r) => {
+        const fra = this.data.noder.find((n) => n.id === r.fra_node_id)
+        const til = this.data.noder.find((n) => n.id === r.til_node_id)
+        const fv = fra ? this.localNodeToValg(fra) : null
+        const tv = til ? this.localNodeToValg(til) : null
+        return {
+          slags: 'farvematch' as const,
+          id: r.id,
+          titel: fv?.titel ?? 'Farve',
+          undertekst: `Farvematch → ${tv?.titel ?? 'farve'}`,
+          hex: fv?.hex ?? null,
+          status: r.status,
+          href: (fv && farveHref(fv)) || '/',
+          af: null,
+          tidspunkt: r.created_at,
+        }
+      })
+    const opskrift: AktivitetItem[] = this.data.printopskrifter
+      .filter((o) => !o.slettet)
+      .map((o) => {
+        const v = this.opskriftTilView(o)
+        const cmyk = o.cmyk_c != null && o.cmyk_m != null && o.cmyk_y != null && o.cmyk_k != null ? formatCmyk({ c: o.cmyk_c, m: o.cmyk_m, y: o.cmyk_y, k: o.cmyk_k }) : null
+        return {
+          slags: 'printopskrift' as const,
+          id: o.id,
+          titel: v.maalfarve.titel,
+          undertekst: ['Printopskrift', cmyk, o.medie].filter(Boolean).join(' · '),
+          hex: v.maalfarve.hex ?? null,
+          status: o.status,
+          href: `/opskrift/${o.id}`,
+          af: null,
+          tidspunkt: o.created_at,
+        }
+      })
+    return [...rel, ...opskrift].sort((a, b) => b.tidspunkt.localeCompare(a.tidspunkt)).slice(0, limit)
+  }
+
+  async mitSenesteArbejde(_userId: string, limit: number): Promise<AktivitetItem[]> {
+    await this.ready
+    return this.localFeed(limit)
+  }
+
+  async senesteAktivitet(limit: number): Promise<AktivitetItem[]> {
+    await this.ready
+    return this.localFeed(limit)
   }
 }
