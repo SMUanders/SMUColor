@@ -1,16 +1,13 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Printer } from 'lucide-react'
-import { getStore } from '../data'
-import type { FarveValg, Printopskrift } from '../lib/types'
+import { Printer } from 'lucide-react'
+import type { Printopskrift } from '../lib/types'
 import { formatCmyk } from '../lib/cmyk'
 import { StatusBadge } from './StatusBadge'
-import { EmptyState, SectionTitle, Spinner } from './common'
 
 function harCmyk(o: Printopskrift): boolean {
   return o.cmyk_c != null && o.cmyk_m != null && o.cmyk_y != null && o.cmyk_k != null
 }
 
+/** Én printopskrift-række (genbruges i farvens arbejdsrum). Klikbar hvis onClick. */
 export function PrintopskriftRow({ o, border, onClick }: { o: Printopskrift; border?: boolean; onClick?: () => void }) {
   const kontekst = [o.printer, o.medie, o.printmode, o.profil_quickset].filter(Boolean).join(' · ')
   return (
@@ -31,50 +28,6 @@ export function PrintopskriftRow({ o, border, onClick }: { o: Printopskrift; bor
         </div>
       </div>
       <StatusBadge status={o.status} />
-    </div>
-  )
-}
-
-/** "Printopskrifter"-afsnit til en farveside. Flere opskrifter pr. farve. */
-export function PrintopskriftSektion({ farve, canEdit }: { farve: FarveValg; canEdit: boolean }) {
-  const store = getStore()
-  const navigate = useNavigate()
-  const [opskrifter, setOpskrifter] = useState<Printopskrift[] | null>(null)
-
-  useEffect(() => {
-    let aktiv = true
-    store.getPrintopskrifterForColor(farve.kind, farve.refId).then((o) => aktiv && setOpskrifter(o))
-    return () => {
-      aktiv = false
-    }
-  }, [farve.kind, farve.refId, store])
-
-  return (
-    <div style={{ marginTop: 28 }}>
-      <SectionTitle
-        right={
-          canEdit ? (
-            <Link to="/opskrift/ny" state={{ farve }} className="smu-btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}>
-              <Plus size={15} /> Opret printopskrift
-            </Link>
-          ) : undefined
-        }
-      >
-        Printopskrifter · Canon Colorado
-      </SectionTitle>
-      {opskrifter === null ? (
-        <Spinner />
-      ) : opskrifter.length === 0 ? (
-        <EmptyState icon={Printer} title="Ingen printopskrifter endnu">
-          {canEdit ? 'Registrér hvordan vi rammer denne farve på Canon Colorado.' : 'En redaktør kan oprette en printopskrift.'}
-        </EmptyState>
-      ) : (
-        <div className="smu-card" style={{ overflow: 'hidden' }}>
-          {opskrifter.map((o, i) => (
-            <PrintopskriftRow key={o.id} o={o} border={i > 0} onClick={() => navigate(`/opskrift/${o.id}`)} />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

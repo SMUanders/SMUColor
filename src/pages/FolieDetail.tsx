@@ -1,33 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Layers, Plus } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { getStore } from '../data'
 import { useAuth } from '../context/AuthContext'
-import type { FarveValg, RelationView, SourceFolie } from '../lib/types'
+import type { FarveValg, SourceFolie } from '../lib/types'
 import { Swatch } from '../components/Swatch'
-import { StatusBadge } from '../components/StatusBadge'
-import { FarveValgRow } from '../components/FarveValgRow'
-import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
+import { FarveArbejdsrum } from '../components/FarveArbejdsrum'
 import { folieToValg } from '../lib/folie'
-import { farveHref } from '../lib/nav'
-import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
+import { ErrorState, Spinner } from '../components/common'
 
 export default function FolieDetail() {
   const { variantId } = useParams<{ variantId: string }>()
   const store = getStore()
-  const navigate = useNavigate()
   const { user } = useAuth()
   const canEdit = Boolean(user?.erRedaktoer)
 
   const [folie, setFolie] = useState<SourceFolie | null | undefined>(undefined)
-  const [relations, setRelations] = useState<RelationView[] | null>(null)
 
   useEffect(() => {
     if (!variantId) return
     setFolie(undefined)
-    setRelations(null)
     store.getSourceFolie(variantId).then(setFolie)
-    store.getRelationsForColor('source', variantId).then(setRelations)
   }, [variantId, store])
 
   if (folie === undefined) return <Spinner label="Indlæser folie…" />
@@ -35,11 +28,6 @@ export default function FolieDetail() {
     return <ErrorState title="Folien blev ikke fundet">Findes ikke i Source, eller kræver login mod det delte projekt (Source-farver vises ikke i lokal dev).</ErrorState>
 
   const valg: FarveValg = folieToValg(folie)
-
-  function openModpart(v: FarveValg) {
-    const href = farveHref(v)
-    if (href) navigate(href)
-  }
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -76,45 +64,7 @@ export default function FolieDetail() {
         </div>
       </div>
 
-      {/* Farvematches */}
-      <div style={{ marginTop: 28 }}>
-        <SectionTitle
-          right={
-            canEdit && folie.aktiv ? (
-              <Link to="/relation/ny" state={{ fra: valg }} className="smu-btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}>
-                <Plus size={15} /> Opret farvematch
-              </Link>
-            ) : undefined
-          }
-        >
-          Farvematches
-        </SectionTitle>
-        {relations === null ? (
-          <Spinner />
-        ) : relations.length === 0 ? (
-          <EmptyState icon={Layers} title="Ingen farvematches endnu">
-            {canEdit
-              ? folie.aktiv
-                ? 'Match denne folie med fx en Pantone-reference eller en anden folie.'
-                : 'Udgået folie — kan ikke bruges til nye farvematches, men eksisterende vises her.'
-              : 'En redaktør kan oprette et farvematch.'}
-          </EmptyState>
-        ) : (
-          <div className="smu-card" style={{ overflow: 'hidden' }}>
-            {relations.map((r, i) => (
-              <FarveValgRow
-                key={r.id}
-                valg={r.modpart}
-                border={i > 0}
-                onClick={r.modpart.kind !== 'lokal' ? () => openModpart(r.modpart) : undefined}
-                right={<StatusBadge status={r.status} />}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <PrintopskriftSektion farve={valg} canEdit={canEdit} />
+      <FarveArbejdsrum farve={valg} canEdit={canEdit} canMatch={canEdit && folie.aktiv} />
     </div>
   )
 }

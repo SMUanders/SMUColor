@@ -1,32 +1,25 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Layers, Plus } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { getStore } from '../data'
-import type { FarveValg, ReferenceFarve, RelationView } from '../lib/types'
+import type { FarveValg, ReferenceFarve } from '../lib/types'
 import { useAuth } from '../context/AuthContext'
 import { Swatch } from '../components/Swatch'
-import { FarveValgRow } from '../components/FarveValgRow'
-import { PrintopskriftSektion } from '../components/PrintopskriftSektion'
-import { StatusBadge } from '../components/StatusBadge'
-import { farveHref } from '../lib/nav'
-import { EmptyState, ErrorState, SectionTitle, Spinner } from '../components/common'
+import { FarveArbejdsrum } from '../components/FarveArbejdsrum'
+import { ErrorState, Spinner } from '../components/common'
 
 export default function RalDetail() {
   const { refId } = useParams<{ refId: string }>()
   const store = getStore()
-  const navigate = useNavigate()
   const { user } = useAuth()
   const canEdit = Boolean(user?.erRedaktoer)
 
   const [farve, setFarve] = useState<ReferenceFarve | null | undefined>(undefined)
-  const [relations, setRelations] = useState<RelationView[] | null>(null)
 
   useEffect(() => {
     if (!refId) return
     setFarve(undefined)
-    setRelations(null)
     store.getRalFarve(refId).then(setFarve)
-    store.getRelationsForColor('ral', refId).then(setRelations)
   }, [refId, store])
 
   if (farve === undefined) return <Spinner label="Indlæser farve…" />
@@ -71,50 +64,7 @@ export default function RalDetail() {
         </div>
       </div>
 
-      {/* Farvematches (palette-neutralt) */}
-      <div style={{ marginTop: 28 }}>
-        <SectionTitle
-          right={
-            canEdit ? (
-              <Link
-                to="/relation/ny"
-                state={{ fra: valg }}
-                className="smu-btn-primary"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px' }}
-              >
-                <Plus size={15} /> Opret farvematch
-              </Link>
-            ) : undefined
-          }
-        >
-          Farvematches
-        </SectionTitle>
-        {relations === null ? (
-          <Spinner />
-        ) : relations.length === 0 ? (
-          <EmptyState icon={Layers} title="Ingen farvematches endnu">
-            RAL-koden ovenfor er en reference.
-            {canEdit ? ' Match den med en folie eller en anden farve for at begynde.' : ' En redaktør kan oprette et farvematch.'}
-          </EmptyState>
-        ) : (
-          <div className="smu-card" style={{ overflow: 'hidden' }}>
-            {relations.map((r, i) => {
-              const href = farveHref(r.modpart)
-              return (
-                <FarveValgRow
-                  key={r.id}
-                  valg={r.modpart}
-                  border={i > 0}
-                  onClick={href ? () => navigate(href) : undefined}
-                  right={<StatusBadge status={r.status} />}
-                />
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      <PrintopskriftSektion farve={valg} canEdit={canEdit} />
+      <FarveArbejdsrum farve={valg} canEdit={canEdit} />
     </div>
   )
 }

@@ -150,6 +150,27 @@ select.smu-input { cursor: pointer; }
 @keyframes smu-spin { to { transform: rotate(360deg); } }
 .smu-spin { animation: smu-spin 0.9s linear infinite; }
 
+/* ---- Drawer (arbejdsrum) ---- */
+@keyframes smu-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes smu-drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.smu-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(33, 55, 70, 0.32);
+  animation: smu-overlay-in 0.16s ease;
+  display: flex; justify-content: flex-end;
+}
+.smu-drawer {
+  width: min(560px, 100vw);
+  height: 100%;
+  background: var(--color-bg);
+  box-shadow: -8px 0 32px rgba(33, 55, 70, 0.18);
+  overflow-y: auto;
+  animation: smu-drawer-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .smu-overlay, .smu-drawer { animation: none; }
+}
+
 /* ---- Klikbart kort/række ---- */
 .smu-clickable { cursor: pointer; transition: background 0.12s ease, border-color 0.12s ease; }
 .smu-clickable:hover { background: var(--color-row-bg); }
