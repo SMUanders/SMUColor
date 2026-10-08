@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { hasSupabase, supabase } from '../lib/supabase'
-import { erColorRedaktoer } from '../lib/colorAccess'
+import { erColorRedaktoer, erColorSkriver } from '../lib/colorAccess'
 import type { CurrentUser } from '../lib/types'
 
 interface AuthState {
@@ -20,6 +20,7 @@ const DEV_USER: CurrentUser = {
   id: '00000000-0000-0000-0000-000000000000',
   email: 'dev@signmeup.dk',
   navn: 'Dev (lokal)',
+  erSkriver: true,
   erRedaktoer: true,
 }
 
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // platform-nav/useAllowedApps. Fail-closed: fejl eller manglende/inaktiv color-
       // adgang → ingen forhøjede rettigheder.
       let erRedaktoer = false
+      let erSkriver = false
       try {
         const { data: adgange } = await supabase!
           .from('app_adgange')
@@ -79,11 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('aktiv', true)
         const roller = ((adgange as { rolle: string }[] | null) ?? []).map((r) => r.rolle)
         erRedaktoer = erColorRedaktoer(roller)
+        erSkriver = erColorSkriver(roller)
       } catch {
         // fail-closed — ingen rettigheder ved fejl.
       }
 
-      setUser({ id: authUser.id, email: authUser.email ?? '', navn, erRedaktoer })
+      setUser({ id: authUser.id, email: authUser.email ?? '', navn, erSkriver, erRedaktoer })
     }
 
     loadFromSession()

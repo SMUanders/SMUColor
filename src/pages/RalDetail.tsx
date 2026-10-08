@@ -12,7 +12,7 @@ export default function RalDetail() {
   const { refId } = useParams<{ refId: string }>()
   const store = getStore()
   const { user } = useAuth()
-  const canEdit = Boolean(user?.erRedaktoer)
+  const canEdit = Boolean(user?.erSkriver)
 
   const [farve, setFarve] = useState<ReferenceFarve | null | undefined>(undefined)
 

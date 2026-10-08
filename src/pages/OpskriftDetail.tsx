@@ -16,7 +16,7 @@ export default function OpskriftDetail() {
   const store = getStore()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const canEdit = Boolean(user?.erRedaktoer)
+  const canEdit = Boolean(user?.erSkriver)
 
   const [view, setView] = useState<PrintopskriftView | null | undefined>(undefined)
   const [history, setHistory] = useState<VerificationHistory[]>([])

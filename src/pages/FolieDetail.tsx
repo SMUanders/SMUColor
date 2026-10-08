@@ -13,7 +13,7 @@ export default function FolieDetail() {
   const { variantId } = useParams<{ variantId: string }>()
   const store = getStore()
   const { user } = useAuth()
-  const canEdit = Boolean(user?.erRedaktoer)
+  const canEdit = Boolean(user?.erSkriver)
 
   const [folie, setFolie] = useState<SourceFolie | null | undefined>(undefined)
 

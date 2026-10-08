@@ -1,7 +1,7 @@
 {
   "name": "smu-color",
   "private": true,
-  "version": "1.5.2",
+  "version": "1.5.3",
   "type": "module",
   "description": "SMU Color — internt farveopslags- og verifikationsværktøj for Signmeups tegnestue",
   "scripts": {

@@ -116,3 +116,25 @@ export function RequireRedaktoer({ children }: { children: ReactNode }) {
   }
   return <>{children}</>
 }
+
+/** Beskytter skrive-ruter (oprette/redigere forslag). Observatører ser en besked. */
+export function RequireSkriver({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const location = useLocation()
+  if (!user?.erSkriver) {
+    return (
+      <div className="smu-card" style={{ padding: '32px 24px', textAlign: 'center' }}>
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Kun læseadgang</div>
+        <div style={{ color: 'var(--color-text-muted)', fontWeight: 600, fontSize: 14 }}>
+          Du har læseadgang (observatør). Oprettelse og redigering kræver bruger-adgang eller højere.
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <Link className="smu-btn-secondary" to="/" state={{ from: location.pathname }} style={{ textDecoration: 'none' }}>
+            Tilbage til søgning
+          </Link>
+        </div>
+      </div>
+    )
+  }
+  return <>{children}</>
+}

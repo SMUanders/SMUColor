@@ -12,7 +12,7 @@ export default function ColorDetail() {
   const { refId } = useParams<{ refId: string }>()
   const store = getStore()
   const { user } = useAuth()
-  const canEdit = Boolean(user?.erRedaktoer)
+  const canEdit = Boolean(user?.erSkriver)
 
   const [ref, setRef] = useState<ReferenceColor | null | undefined>(undefined)
 

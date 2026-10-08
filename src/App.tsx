@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { Layout, RequireRedaktoer } from './components/Layout'
+import { Layout, RequireRedaktoer, RequireSkriver } from './components/Layout'
 import { useAuth } from './context/AuthContext'
 import { Spinner } from './components/common'
 import Login from './pages/Login'
@@ -52,9 +52,9 @@ export default function App() {
         <Route
           path="/relation/ny"
           element={
-            <RequireRedaktoer>
+            <RequireSkriver>
               <RelationNy />
-            </RequireRedaktoer>
+            </RequireSkriver>
           }
         />
         {/* V1.3 — palette-browsing + produktion */}
@@ -63,9 +63,9 @@ export default function App() {
         <Route
           path="/opskrift/ny"
           element={
-            <RequireRedaktoer>
+            <RequireSkriver>
               <OpskriftNy />
-            </RequireRedaktoer>
+            </RequireSkriver>
           }
         />
         {/* V1.4.1 — genåbning af printopskrifter */}
@@ -74,9 +74,9 @@ export default function App() {
         <Route
           path="/opskrift/:id/rediger"
           element={
-            <RequireRedaktoer>
+            <RequireSkriver>
               <OpskriftEdit />
-            </RequireRedaktoer>
+            </RequireSkriver>
           }
         />
         <Route

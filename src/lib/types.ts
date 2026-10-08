@@ -168,6 +168,9 @@ export interface CurrentUser {
   id: string
   email: string
   navn: string
+  /** Må oprette/redigere forslag (bruger+). observatoer = false. */
+  erSkriver: boolean
+  /** Må verificere/afvise + ændre verificerede/afviste (redaktør+). */
   erRedaktoer: boolean
 }
 
