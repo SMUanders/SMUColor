@@ -273,8 +273,10 @@ function OpskriftDrawer({
       <OpskriftForm
         maalfarve={view.maalfarve}
         initial={{
-          printer: o.printer, medie: o.medie, printmode: o.printmode, profil_quickset: o.profil_quickset,
+          printer: o.printer, medie: o.medie, laminat: o.laminat, media_group: o.media_group, media_name: o.media_name, ink_setup: o.ink_setup,
+          printmode: o.printmode, profil_quickset: o.profil_quickset,
           cmyk_c: o.cmyk_c, cmyk_m: o.cmyk_m, cmyk_y: o.cmyk_y, cmyk_k: o.cmyk_k,
+          spot1: o.kanalvaerdier?.Spot1 ?? null, spot2: o.kanalvaerdier?.Spot2 ?? null,
           outputopskrift: o.outputopskrift, note: o.note,
         }}
         submitLabel="Gem ændringer"

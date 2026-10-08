@@ -14,6 +14,7 @@ import type {
   MaterialColor,
   NodeType,
   Printopskrift,
+  PrintopskriftFeltforslag,
   PrintopskriftView,
   ProductionContext,
   ReferenceColor,
@@ -73,6 +74,15 @@ import type {
 } from './store'
 
 const LS_KEY = 'smu-color-dev-v1'
+
+/** Flet CMYK + spots ind i kanalvaerdier (autoritativ kilde). */
+function flettKanaler(eksisterende: Record<string, number> | null, cmyk: CmykVaerdier | null, spot1: number | null, spot2: number | null): Record<string, number> | null {
+  const base: Record<string, number> = eksisterende ? { ...eksisterende } : {}
+  if (cmyk) { base.C = cmyk.c; base.M = cmyk.m; base.Y = cmyk.y; base.K = cmyk.k } else { delete base.C; delete base.M; delete base.Y; delete base.K }
+  if (spot1 != null) base.Spot1 = spot1; else delete base.Spot1
+  if (spot2 != null) base.Spot2 = spot2; else delete base.Spot2
+  return Object.keys(base).length ? base : null
+}
 
 interface Mutable {
   materials: Material[]
@@ -595,13 +605,17 @@ export class LocalStore implements FarveStore {
     // Bevar id, node_id, status, verificering og created-oplysninger; opdater kun felterne.
     o.printer = input.printer ?? o.printer
     o.medie = input.medie ?? null
+    o.laminat = input.laminat ?? null
+    o.media_group = input.media_group ?? null
+    o.media_name = input.media_name ?? null
+    o.ink_setup = input.ink_setup ?? null
     o.printmode = input.printmode ?? null
     o.profil_quickset = input.profil_quickset ?? null
     o.cmyk_c = input.cmyk?.c ?? null
     o.cmyk_m = input.cmyk?.m ?? null
     o.cmyk_y = input.cmyk?.y ?? null
     o.cmyk_k = input.cmyk?.k ?? null
-    o.kanalvaerdier = input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null
+    o.kanalvaerdier = flettKanaler(o.kanalvaerdier, input.cmyk, input.spot1, input.spot2)
     o.outputopskrift = input.outputopskrift ?? null
     o.note = input.note ?? null
     this.persist()
@@ -613,6 +627,21 @@ export class LocalStore implements FarveStore {
     return []
   }
 
+  async printopskriftFeltforslag(): Promise<PrintopskriftFeltforslag> {
+    await this.ready
+    const rows = this.data.printopskrifter.filter((o) => !o.slettet)
+    const uniq = (vals: (string | null | undefined)[]) => [...new Set(vals.filter((v): v is string => Boolean(v && v.trim())))].sort((a, b) => a.localeCompare(b, 'da'))
+    return {
+      medie: uniq(rows.map((o) => o.medie)),
+      laminat: uniq(rows.map((o) => o.laminat)),
+      media_group: uniq(rows.map((o) => o.media_group)),
+      ink_setup: uniq(rows.map((o) => o.ink_setup)),
+      kombinationer: rows
+        .map((o) => ({ media_group: o.media_group ?? null, media_name: o.media_name ?? null, printmode: o.printmode }))
+        .filter((k) => k.media_group || k.media_name || k.printmode),
+    }
+  }
+
   async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput): Promise<{ id: string }> {
     await this.ready
     const nodeId = this.localFindOrCreateNode(color.kind, color.refId)
@@ -621,9 +650,13 @@ export class LocalStore implements FarveStore {
       node_id: nodeId,
       printer: input.printer ?? 'Canon Colorado M-series',
       medie: input.medie ?? null,
+      laminat: input.laminat ?? null,
+      media_group: input.media_group ?? null,
+      media_name: input.media_name ?? null,
+      ink_setup: input.ink_setup ?? null,
       printmode: input.printmode ?? null,
       profil_quickset: input.profil_quickset ?? null,
-      kanalvaerdier: input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null,
+      kanalvaerdier: flettKanaler(null, input.cmyk, input.spot1, input.spot2),
       cmyk_c: input.cmyk?.c ?? null,
       cmyk_m: input.cmyk?.m ?? null,
       cmyk_y: input.cmyk?.y ?? null,

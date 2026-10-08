@@ -16,6 +16,7 @@ import type {
   MaterialColor,
   NodeType,
   Printopskrift,
+  PrintopskriftFeltforslag,
   PrintopskriftView,
   ProductionContext,
   FarveValg,
@@ -159,6 +160,8 @@ export interface FarveStore {
   updatePrintopskrift(id: string, input: CreatePrintopskriftInput, user: CurrentUser): Promise<Printopskrift>
   /** Append-only historik for en printopskrift (nyeste først). */
   getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]>
+  /** Datalist-forslag til printopskrift-felter fra faktiske data. */
+  printopskriftFeltforslag(): Promise<PrintopskriftFeltforslag>
   /** Alle printopskrifter (Canon/ONYX-området), nyeste først. */
   listPrintopskrifter(): Promise<PrintopskriftView[]>
   /** EKSAKT CMYK-søgning i registrerede printopskrifter. */

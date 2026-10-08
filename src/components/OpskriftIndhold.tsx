@@ -30,14 +30,16 @@ export function OpskriftIndhold({ view, history }: { view: PrintopskriftView; hi
   const o = view.opskrift
   const ekstra = ekstraKanaler(o.kanalvaerdier)
 
-  const felter: [string, string][] = [
-    ['Printer', o.printer ?? '—'],
-    ['Medie', o.medie ?? '—'],
-    ['Printmode', o.printmode ?? '—'],
-    ['Profil / Quick Set', o.profil_quickset ?? '—'],
-    ['CMYK', harCmyk(o) ? formatCmyk({ c: o.cmyk_c, m: o.cmyk_m, y: o.cmyk_y, k: o.cmyk_k }) : '—'],
-  ]
-  if (ekstra.length) felter.push(['Ekstra kanaler', ekstra.map(([k, v]) => `${k} ${v}`).join(' · ')])
+  const felter: [string, string][] = [['Printmedie', o.medie ?? '—']]
+  if (o.laminat) felter.push(['Laminat', o.laminat])
+  felter.push(['Printer', o.printer ?? '—'])
+  if (o.media_group) felter.push(['Media Group', o.media_group])
+  if (o.media_name) felter.push(['Media Name', o.media_name])
+  felter.push(['Print Mode', o.printmode ?? '—'])
+  if (o.ink_setup) felter.push(['Ink Setup', o.ink_setup])
+  felter.push(['Profil / Quick Set', o.profil_quickset ?? '—'])
+  felter.push(['CMYK', harCmyk(o) ? formatCmyk({ c: o.cmyk_c, m: o.cmyk_m, y: o.cmyk_y, k: o.cmyk_k }) : '—'])
+  if (ekstra.length) felter.push(['Spots', ekstra.map(([k, v]) => `${k} ${v}`).join(' · ')])
 
   return (
     <>

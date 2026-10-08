@@ -15,6 +15,7 @@ import type {
   NodeType,
   Printopskrift,
   PrintopskriftView,
+  PrintopskriftFeltforslag,
   ProductionContext,
   ReferenceColor,
   ReferenceFarve,
@@ -93,6 +94,34 @@ const T = {
   history: 'farve_verification_history',
   issues: 'farve_import_issues',
 } as const
+
+/** Byg kanalvaerdier (autoritativ kilde) fra CMYK + spots. null hvis tom. */
+function byggKanaler(cmyk: CmykVaerdier | null, spot1: number | null, spot2: number | null): Record<string, number> | null {
+  const k: Record<string, number> = {}
+  if (cmyk) { k.C = cmyk.c; k.M = cmyk.m; k.Y = cmyk.y; k.K = cmyk.k }
+  if (spot1 != null) k.Spot1 = spot1
+  if (spot2 != null) k.Spot2 = spot2
+  return Object.keys(k).length ? k : null
+}
+
+/** Flet CMYK + spots ind i eksisterende kanalvaerdier (bevarer evt. ukendte kanaler). */
+function flettKanaler(eksisterende: Record<string, number> | null, cmyk: CmykVaerdier | null, spot1: number | null, spot2: number | null): Record<string, number> | null {
+  const base: Record<string, number> = eksisterende ? { ...eksisterende } : {}
+  if (cmyk) { base.C = cmyk.c; base.M = cmyk.m; base.Y = cmyk.y; base.K = cmyk.k } else { delete base.C; delete base.M; delete base.Y; delete base.K }
+  if (spot1 != null) base.Spot1 = spot1; else delete base.Spot1
+  if (spot2 != null) base.Spot2 = spot2; else delete base.Spot2
+  return Object.keys(base).length ? base : null
+}
+
+/** ONYX/materiale-felter fra input (fri tekst; Source-reference indføres ikke her). */
+function v2Felter(input: CreatePrintopskriftInput) {
+  return {
+    laminat: input.laminat ?? null,
+    media_group: input.media_group ?? null,
+    media_name: input.media_name ?? null,
+    ink_setup: input.ink_setup ?? null,
+  }
+}
 
 export class SupabaseStore implements FarveStore {
   readonly mode = 'supabase' as const
@@ -623,20 +652,14 @@ export class SupabaseStore implements FarveStore {
   }
 
   async updatePrintopskrift(id: string, input: CreatePrintopskriftInput, user: CurrentUser): Promise<Printopskrift> {
-    // Bevar evt. ekstra kanaler (fremtidige spots) — flet CMYK ind i eksisterende kanalvaerdier.
+    // Flet CMYK + spots ind i eksisterende kanalvaerdier (bevarer evt. ukendte kanaler).
     const { data: cur } = await this.sb.from('farve_printopskrift').select('kanalvaerdier').eq('id', id).maybeSingle()
-    const base: Record<string, number> = cur && (cur as { kanalvaerdier: Record<string, number> | null }).kanalvaerdier
-      ? { ...(cur as { kanalvaerdier: Record<string, number> }).kanalvaerdier }
-      : {}
-    if (input.cmyk) {
-      base.C = input.cmyk.c; base.M = input.cmyk.m; base.Y = input.cmyk.y; base.K = input.cmyk.k
-    } else {
-      delete base.C; delete base.M; delete base.Y; delete base.K
-    }
-    const kanal = Object.keys(base).length ? base : null
+    const eksisterende = (cur as { kanalvaerdier: Record<string, number> | null } | null)?.kanalvaerdier ?? null
+    const kanal = flettKanaler(eksisterende, input.cmyk, input.spot1, input.spot2)
     const patch = {
       printer: input.printer ?? 'Canon Colorado M-series',
       medie: input.medie ?? null,
+      ...v2Felter(input),
       printmode: input.printmode ?? null,
       profil_quickset: input.profil_quickset ?? null,
       kanalvaerdier: kanal,
@@ -647,12 +670,28 @@ export class SupabaseStore implements FarveStore {
       outputopskrift: input.outputopskrift ?? null,
       note: input.note ?? null,
       updated_by: user.id,
+      updated_by_navn: user.navn,
     }
-    // node_id, status, verificering og created_* røres ikke. Historik skrives kun af
-    // trigger ved statusskift (append-only) — en felt-redigering logges bevidst ikke.
+    // node_id, status, verificering og created_* røres ikke. Feltændringer logges nu af
+    // trigger som 'opdateret' (append-only); statusskift håndteres separat.
     const { data, error } = await this.sb.from('farve_printopskrift').update(patch).eq('id', id).select('*').single()
     if (error) throw error
     return data as Printopskrift
+  }
+
+  async printopskriftFeltforslag(): Promise<PrintopskriftFeltforslag> {
+    const { data } = await this.sb.from('farve_printopskrift').select('medie,laminat,media_group,media_name,printmode,ink_setup').eq('slettet', false).limit(1000)
+    const rows = (data as { medie: string | null; laminat: string | null; media_group: string | null; media_name: string | null; printmode: string | null; ink_setup: string | null }[] | null) ?? []
+    const uniq = (vals: (string | null)[]) => [...new Set(vals.filter((v): v is string => Boolean(v && v.trim())))].sort((a, b) => a.localeCompare(b, 'da'))
+    return {
+      medie: uniq(rows.map((r) => r.medie)),
+      laminat: uniq(rows.map((r) => r.laminat)),
+      media_group: uniq(rows.map((r) => r.media_group)),
+      ink_setup: uniq(rows.map((r) => r.ink_setup)),
+      kombinationer: rows
+        .map((r) => ({ media_group: r.media_group, media_name: r.media_name, printmode: r.printmode }))
+        .filter((k) => k.media_group || k.media_name || k.printmode),
+    }
   }
 
   async getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]> {
@@ -662,11 +701,12 @@ export class SupabaseStore implements FarveStore {
 
   async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput, user: CurrentUser): Promise<{ id: string }> {
     const nodeId = await this.findOrCreateNode(color.kind, color.refId, user)
-    const kanal = input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null
+    const kanal = byggKanaler(input.cmyk, input.spot1, input.spot2)
     const row = {
       node_id: nodeId,
       printer: input.printer ?? 'Canon Colorado M-series',
       medie: input.medie ?? null,
+      ...v2Felter(input),
       printmode: input.printmode ?? null,
       profil_quickset: input.profil_quickset ?? null,
       kanalvaerdier: kanal,
@@ -680,6 +720,7 @@ export class SupabaseStore implements FarveStore {
       created_by: user.id,
       created_by_navn: user.navn,
       updated_by: user.id,
+      updated_by_navn: user.navn,
     }
     const { data, error } = await this.sb.from('farve_printopskrift').insert(row).select('id').single()
     if (error) throw error

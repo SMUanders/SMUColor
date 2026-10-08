@@ -259,10 +259,19 @@ export interface Printopskrift {
   id: string
   node_id: string
   printer: string | null
+  /** Printmedie (fri tekst). Source ejer produktidentiteten — ingen reference her. */
   medie: string | null
+  /** Laminat (fri tekst), separat fra printmedie. */
+  laminat?: string | null
+  // ── ONYX-produktionskonfiguration (Color-ejet, ≠ Source-produkt) ──
+  media_group?: string | null
+  media_name?: string | null
+  ink_setup?: string | null
   printmode: string | null
   profil_quickset: string | null
+  /** Autoritativ kilde for ALLE kanaler: {C,M,Y,K,Spot1,Spot2}. */
   kanalvaerdier: Record<string, number> | null
+  // CMYK = eksakt søgeprojektion af kanalvaerdier (samme værdier, ikke parallel sandhed).
   cmyk_c: number | null
   cmyk_m: number | null
   cmyk_y: number | null
@@ -298,11 +307,28 @@ export interface AktivitetItem {
 export interface CreatePrintopskriftInput {
   printer: string | null
   medie: string | null
+  laminat: string | null
+  media_group: string | null
+  media_name: string | null
+  ink_setup: string | null
   printmode: string | null
   profil_quickset: string | null
   cmyk: CmykVaerdier | null
+  /** Spot1/Spot2 — gemmes KUN i kanalvaerdier jsonb (ingen egne kolonner). */
+  spot1: number | null
+  spot2: number | null
   outputopskrift: string | null
   note: string | null
+}
+
+/** Datalist-forslag til printopskrift-felter (fra faktiske data; fri tekst altid mulig). */
+export interface PrintopskriftFeltforslag {
+  medie: string[]
+  laminat: string[]
+  media_group: string[]
+  ink_setup: string[]
+  /** Reelle ONYX-kombinationer → afhængige forslag (media_name pr. group, printmode pr. media). */
+  kombinationer: { media_group: string | null; media_name: string | null; printmode: string | null }[]
 }
 
 /** En printopskrift + dens målfarve (til Canon-området og CMYK-søgning). */
