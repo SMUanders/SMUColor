@@ -579,6 +579,37 @@ export class LocalStore implements FarveStore {
     return this.data.printopskrifter.filter((o) => o.node_id === node.id && !o.slettet).sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
 
+  async getPrintopskrift(id: string): Promise<PrintopskriftView | null> {
+    await this.ready
+    const o = this.data.printopskrifter.find((x) => x.id === id && !x.slettet)
+    return o ? this.opskriftTilView(o) : null
+  }
+
+  async updatePrintopskrift(id: string, input: CreatePrintopskriftInput): Promise<Printopskrift> {
+    await this.ready
+    const o = this.data.printopskrifter.find((x) => x.id === id)
+    if (!o) throw new Error('Printopskrift ikke fundet')
+    // Bevar id, node_id, status, verificering og created-oplysninger; opdater kun felterne.
+    o.printer = input.printer ?? o.printer
+    o.medie = input.medie ?? null
+    o.printmode = input.printmode ?? null
+    o.profil_quickset = input.profil_quickset ?? null
+    o.cmyk_c = input.cmyk?.c ?? null
+    o.cmyk_m = input.cmyk?.m ?? null
+    o.cmyk_y = input.cmyk?.y ?? null
+    o.cmyk_k = input.cmyk?.k ?? null
+    o.kanalvaerdier = input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null
+    o.outputopskrift = input.outputopskrift ?? null
+    o.note = input.note ?? null
+    this.persist()
+    return o
+  }
+
+  async getPrintopskriftHistorik(): Promise<VerificationHistory[]> {
+    // Lokal dev fører ikke opskrift-historik (kun det delte Supabase-projekt gør).
+    return []
+  }
+
   async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput): Promise<{ id: string }> {
     await this.ready
     const nodeId = this.localFindOrCreateNode(color.kind, color.refId)

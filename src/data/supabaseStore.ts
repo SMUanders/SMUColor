@@ -613,6 +613,50 @@ export class SupabaseStore implements FarveStore {
     return (data as Printopskrift[]) ?? []
   }
 
+  async getPrintopskrift(id: string): Promise<PrintopskriftView | null> {
+    const { data } = await this.sb.from('farve_printopskrift').select('*').eq('id', id).eq('slettet', false).maybeSingle()
+    if (!data) return null
+    return (await this.enrichOpskrifter([data as Printopskrift]))[0] ?? null
+  }
+
+  async updatePrintopskrift(id: string, input: CreatePrintopskriftInput, user: CurrentUser): Promise<Printopskrift> {
+    // Bevar evt. ekstra kanaler (fremtidige spots) — flet CMYK ind i eksisterende kanalvaerdier.
+    const { data: cur } = await this.sb.from('farve_printopskrift').select('kanalvaerdier').eq('id', id).maybeSingle()
+    const base: Record<string, number> = cur && (cur as { kanalvaerdier: Record<string, number> | null }).kanalvaerdier
+      ? { ...(cur as { kanalvaerdier: Record<string, number> }).kanalvaerdier }
+      : {}
+    if (input.cmyk) {
+      base.C = input.cmyk.c; base.M = input.cmyk.m; base.Y = input.cmyk.y; base.K = input.cmyk.k
+    } else {
+      delete base.C; delete base.M; delete base.Y; delete base.K
+    }
+    const kanal = Object.keys(base).length ? base : null
+    const patch = {
+      printer: input.printer ?? 'Canon Colorado M-series',
+      medie: input.medie ?? null,
+      printmode: input.printmode ?? null,
+      profil_quickset: input.profil_quickset ?? null,
+      kanalvaerdier: kanal,
+      cmyk_c: input.cmyk?.c ?? null,
+      cmyk_m: input.cmyk?.m ?? null,
+      cmyk_y: input.cmyk?.y ?? null,
+      cmyk_k: input.cmyk?.k ?? null,
+      outputopskrift: input.outputopskrift ?? null,
+      note: input.note ?? null,
+      updated_by: user.id,
+    }
+    // node_id, status, verificering og created_* røres ikke. Historik skrives kun af
+    // trigger ved statusskift (append-only) — en felt-redigering logges bevidst ikke.
+    const { data, error } = await this.sb.from('farve_printopskrift').update(patch).eq('id', id).select('*').single()
+    if (error) throw error
+    return data as Printopskrift
+  }
+
+  async getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]> {
+    const { data } = await this.sb.from('farve_printopskrift_historik').select('*').eq('opskrift_id', id).order('created_at', { ascending: false })
+    return ((data as (Omit<VerificationHistory, 'match_id'> & { opskrift_id: string })[] | null) ?? []).map((r) => ({ ...r, match_id: r.opskrift_id }))
+  }
+
   async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput, user: CurrentUser): Promise<{ id: string }> {
     const nodeId = await this.findOrCreateNode(color.kind, color.refId, user)
     const kanal = input.cmyk ? { C: input.cmyk.c, M: input.cmyk.m, Y: input.cmyk.y, K: input.cmyk.k } : null

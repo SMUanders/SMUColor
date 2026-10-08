@@ -133,7 +133,7 @@ function Resultater({ fund, navigate }: { fund: Fund; navigate: (to: string) => 
           ) : (
             <div className="smu-card" style={{ overflow: 'hidden' }}>
               {fund.opskrifter.map((v, i) => (
-                <div key={v.opskrift.id} className="smu-clickable" onClick={() => navigate(farveHref(v.maalfarve) ?? '/')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: 'pointer' }}>
+                <div key={v.opskrift.id} className="smu-clickable" onClick={() => navigate(`/opskrift/${v.opskrift.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: 'pointer' }}>
                   <Swatch hex={v.maalfarve.hex} size={40} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 800, fontSize: 14 }}>{v.maalfarve.titel}</div>

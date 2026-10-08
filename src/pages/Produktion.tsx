@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Printer, Search, X } from 'lucide-react'
 import { getStore } from '../data'
-import type { FarveValg, PrintopskriftView } from '../lib/types'
+import type { PrintopskriftView } from '../lib/types'
 import { Swatch } from '../components/Swatch'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatCmyk, parseCmyk } from '../lib/cmyk'
-import { farveHref } from '../lib/nav'
 import { EmptyState, Spinner } from '../components/common'
 
 function harCmyk(o: PrintopskriftView['opskrift']): boolean {
@@ -32,10 +31,6 @@ export default function Produktion() {
     return alle.filter((v) => `${v.maalfarve.titel} ${v.opskrift.medie ?? ''} ${v.opskrift.printmode ?? ''}`.toLowerCase().includes(t))
   }, [alle, q, cmyk])
 
-  function openFarve(v: FarveValg) {
-    const href = farveHref(v)
-    if (href) navigate(href)
-  }
 
   return (
     <div style={{ maxWidth: 820, margin: '0 auto' }}>
@@ -73,7 +68,7 @@ export default function Produktion() {
             <div
               key={v.opskrift.id}
               className="smu-clickable"
-              onClick={() => openFarve(v.maalfarve)}
+              onClick={() => navigate(`/opskrift/${v.opskrift.id}`)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: i ? '1px solid var(--color-border-soft)' : undefined, cursor: 'pointer' }}
             >
               <Swatch hex={v.maalfarve.hex} size={40} />

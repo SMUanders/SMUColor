@@ -12,6 +12,8 @@ import RelationNy from './pages/RelationNy'
 import PaletteSerie from './pages/PaletteSerie'
 import Produktion from './pages/Produktion'
 import OpskriftNy from './pages/OpskriftNy'
+import OpskriftDetail from './pages/OpskriftDetail'
+import OpskriftEdit from './pages/OpskriftEdit'
 import MatchDetail from './pages/MatchDetail'
 import MatchEdit from './pages/MatchEdit'
 import Admin from './pages/Admin'
@@ -63,6 +65,17 @@ export default function App() {
           element={
             <RequireRedaktoer>
               <OpskriftNy />
+            </RequireRedaktoer>
+          }
+        />
+        {/* V1.4.1 — genåbning af printopskrifter */}
+        {/* Detalje: læsbar for alle med Color-adgang (RLS: har_app_adgang). */}
+        <Route path="/opskrift/:id" element={<OpskriftDetail />} />
+        <Route
+          path="/opskrift/:id/rediger"
+          element={
+            <RequireRedaktoer>
+              <OpskriftEdit />
             </RequireRedaktoer>
           }
         />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Printer } from 'lucide-react'
 import { getStore } from '../data'
 import type { FarveValg, Printopskrift } from '../lib/types'
@@ -11,10 +11,14 @@ function harCmyk(o: Printopskrift): boolean {
   return o.cmyk_c != null && o.cmyk_m != null && o.cmyk_y != null && o.cmyk_k != null
 }
 
-export function PrintopskriftRow({ o, border }: { o: Printopskrift; border?: boolean }) {
+export function PrintopskriftRow({ o, border, onClick }: { o: Printopskrift; border?: boolean; onClick?: () => void }) {
   const kontekst = [o.printer, o.medie, o.printmode, o.profil_quickset].filter(Boolean).join(' · ')
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: border ? '1px solid var(--color-border-soft)' : undefined }}>
+    <div
+      className={onClick ? 'smu-clickable' : undefined}
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderTop: border ? '1px solid var(--color-border-soft)' : undefined, cursor: onClick ? 'pointer' : undefined }}
+    >
       <span style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--color-grey-soft)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
         <Printer size={18} style={{ color: 'var(--color-grey-deep)' }} />
       </span>
@@ -34,6 +38,7 @@ export function PrintopskriftRow({ o, border }: { o: Printopskrift; border?: boo
 /** "Printopskrifter"-afsnit til en farveside. Flere opskrifter pr. farve. */
 export function PrintopskriftSektion({ farve, canEdit }: { farve: FarveValg; canEdit: boolean }) {
   const store = getStore()
+  const navigate = useNavigate()
   const [opskrifter, setOpskrifter] = useState<Printopskrift[] | null>(null)
 
   useEffect(() => {
@@ -66,7 +71,7 @@ export function PrintopskriftSektion({ farve, canEdit }: { farve: FarveValg; can
       ) : (
         <div className="smu-card" style={{ overflow: 'hidden' }}>
           {opskrifter.map((o, i) => (
-            <PrintopskriftRow key={o.id} o={o} border={i > 0} />
+            <PrintopskriftRow key={o.id} o={o} border={i > 0} onClick={() => navigate(`/opskrift/${o.id}`)} />
           ))}
         </div>
       )}

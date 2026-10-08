@@ -140,12 +140,18 @@ export interface FarveStore {
   listSerieVarianter(serie: string): Promise<SourceFolie[]>
   /** Printopskrifter for en farve. */
   getPrintopskrifterForColor(kind: NodeType, refId: string): Promise<Printopskrift[]>
+  /** Hent én printopskrift + dens målfarve (til genåbning). null hvis ukendt. */
+  getPrintopskrift(id: string): Promise<PrintopskriftView | null>
   /** Opret printopskrift (status 'forslag') for en farve; lazy find-or-create af knude. */
   createPrintopskrift(
     color: { kind: NodeType; refId: string },
     input: CreatePrintopskriftInput,
     user: CurrentUser,
   ): Promise<{ id: string }>
+  /** Rediger en eksisterende printopskrift. Bevarer id, node_id, status, verificering og historik. */
+  updatePrintopskrift(id: string, input: CreatePrintopskriftInput, user: CurrentUser): Promise<Printopskrift>
+  /** Append-only historik for en printopskrift (nyeste først). */
+  getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]>
   /** Alle printopskrifter (Canon/ONYX-området), nyeste først. */
   listPrintopskrifter(): Promise<PrintopskriftView[]>
   /** EKSAKT CMYK-søgning i registrerede printopskrifter. */
