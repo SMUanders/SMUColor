@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Check, Save } from 'lucide-react'
 import { getStore } from '../data'
-import type { CmykVaerdier, CreatePrintopskriftInput, FarveValg, PrintopskriftFeltforslag } from '../lib/types'
+import { TOM_ONYX, type CmykVaerdier, type CreatePrintopskriftInput, type FarveValg, type OnyxValg, type PrintopskriftFeltforslag } from '../lib/types'
 import { Swatch } from './Swatch'
+import { OnyxKonfig } from './OnyxKonfig'
 import { SectionTitle } from './common'
 
 function kanalFelt(v: string): number | null {
@@ -12,14 +13,19 @@ function kanalFelt(v: string): number | null {
 }
 
 export interface OpskriftFormInitial {
-  printer?: string | null
   medie?: string | null
   laminat?: string | null
-  media_group?: string | null
-  media_name?: string | null
-  ink_setup?: string | null
-  printmode?: string | null
   profil_quickset?: string | null
+  printer?: string | null
+  onyx_printer_id?: string | null
+  media_group?: string | null
+  onyx_media_group_id?: string | null
+  media_name?: string | null
+  onyx_media_id?: string | null
+  printmode?: string | null
+  onyx_printmode_id?: string | null
+  color_management?: string | null
+  onyx_color_management_id?: string | null
   cmyk_c?: number | null
   cmyk_m?: number | null
   cmyk_y?: number | null
@@ -33,19 +39,24 @@ export interface OpskriftFormInitial {
 const num = (n: number | null | undefined): string => (n === null || n === undefined ? '' : String(n))
 const TOM_FORSLAG: PrintopskriftFeltforslag = { medie: [], laminat: [], media_group: [], ink_setup: [], kombinationer: [] }
 
+function initialOnyx(i?: OpskriftFormInitial): OnyxValg {
+  if (!i) return TOM_ONYX
+  return {
+    printer_id: i.onyx_printer_id ?? null, printer_navn: i.printer ?? null,
+    media_group_id: i.onyx_media_group_id ?? null, media_group_navn: i.media_group ?? null,
+    media_id: i.onyx_media_id ?? null, media_navn: i.media_name ?? null,
+    printmode_id: i.onyx_printmode_id ?? null, printmode_navn: i.printmode ?? null,
+    color_management_id: i.onyx_color_management_id ?? null, color_management_navn: i.color_management ?? null,
+  }
+}
+
 /**
- * Fælles printopskrift-formular (opret + rediger). Fem afsnit: Målfarve,
- * Materialer, ONYX-konfiguration, Farvekanaler, Note. Datalist-forslag fra
- * faktiske data (fri tekst altid mulig). Spot1/Spot2 gemmes i kanalvaerdier.
- * Ingen obligatoriske felter ud over at noget kan gemmes.
+ * Fælles printopskrift-formular (opret + rediger). Afsnit: Målfarve, Materialer
+ * (fri tekst), ONYX-konfiguration (katalog-dropdowns + Color Management),
+ * Farvekanaler (CMYK + Spot1/Spot2), Note. Spot1/Spot2 gemmes i kanalvaerdier.
  */
 export function OpskriftForm({
-  maalfarve,
-  initial,
-  submitLabel,
-  savingLabel,
-  statusNote,
-  onSubmit,
+  maalfarve, initial, submitLabel, savingLabel, statusNote, onSubmit,
 }: {
   maalfarve: FarveValg
   initial?: OpskriftFormInitial
@@ -58,11 +69,8 @@ export function OpskriftForm({
   const [forslag, setForslag] = useState<PrintopskriftFeltforslag>(TOM_FORSLAG)
   const [medie, setMedie] = useState(initial?.medie ?? '')
   const [laminat, setLaminat] = useState(initial?.laminat ?? '')
-  const [mediaGroup, setMediaGroup] = useState(initial?.media_group ?? '')
-  const [mediaName, setMediaName] = useState(initial?.media_name ?? '')
-  const [inkSetup, setInkSetup] = useState(initial?.ink_setup ?? '')
-  const [printmode, setPrintmode] = useState(initial?.printmode ?? '')
   const [profil, setProfil] = useState(initial?.profil_quickset ?? '')
+  const [onyx, setOnyx] = useState<OnyxValg>(initialOnyx(initial))
   const [c, setC] = useState(num(initial?.cmyk_c))
   const [m, setM] = useState(num(initial?.cmyk_m))
   const [y, setY] = useState(num(initial?.cmyk_y))
@@ -74,29 +82,11 @@ export function OpskriftForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const printer = initial?.printer || 'Canon Colorado M-series'
-
   useEffect(() => {
     let aktiv = true
     store.printopskriftFeltforslag().then((f) => aktiv && setForslag(f))
-    return () => {
-      aktiv = false
-    }
+    return () => { aktiv = false }
   }, [store])
-
-  // Afhængige forslag bygget paa reelle ONYX-kombinationer (ikke Source-antagelser).
-  const mediaNameForslag = useMemo(() => {
-    const vals = forslag.kombinationer
-      .filter((x) => x.media_name && (!mediaGroup.trim() || x.media_group === mediaGroup.trim()))
-      .map((x) => x.media_name as string)
-    return [...new Set(vals)].sort((a, b) => a.localeCompare(b, 'da'))
-  }, [forslag, mediaGroup])
-  const printmodeForslag = useMemo(() => {
-    const vals = forslag.kombinationer
-      .filter((x) => x.printmode && (!mediaGroup.trim() || x.media_group === mediaGroup.trim()) && (!mediaName.trim() || x.media_name === mediaName.trim()))
-      .map((x) => x.printmode as string)
-    return [...new Set(vals)].sort((a, b) => a.localeCompare(b, 'da'))
-  }, [forslag, mediaGroup, mediaName])
 
   async function gem() {
     const cv = [c, m, y, k].map(kanalFelt)
@@ -110,14 +100,19 @@ export function OpskriftForm({
     setError(null)
     try {
       await onSubmit({
-        printer,
         medie: medie.trim() || null,
         laminat: laminat.trim() || null,
-        media_group: mediaGroup.trim() || null,
-        media_name: mediaName.trim() || null,
-        ink_setup: inkSetup.trim() || null,
-        printmode: printmode.trim() || null,
         profil_quickset: profil.trim() || null,
+        printer: onyx.printer_navn,
+        onyx_printer_id: onyx.printer_id,
+        media_group: onyx.media_group_navn,
+        onyx_media_group_id: onyx.media_group_id,
+        media_name: onyx.media_navn,
+        onyx_media_id: onyx.media_id,
+        printmode: onyx.printmode_navn,
+        onyx_printmode_id: onyx.printmode_id,
+        color_management: onyx.color_management_navn,
+        onyx_color_management_id: onyx.color_management_id,
         cmyk,
         spot1: sv[0],
         spot2: sv[1],
@@ -136,7 +131,6 @@ export function OpskriftForm({
         <div style={{ background: 'var(--color-red-soft)', color: 'var(--color-red-deep)', borderRadius: 8, padding: '10px 12px', fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{error}</div>
       )}
 
-      {/* A · Målfarve (read-only — tilknytning kan ikke skiftes) */}
       <div className="smu-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 20 }}>
         <Swatch hex={maalfarve.hex} size={40} />
         <div>
@@ -145,7 +139,6 @@ export function OpskriftForm({
         </div>
       </div>
 
-      {/* B · Materialer */}
       <section style={{ marginBottom: 20 }}>
         <SectionTitle>Materialer</SectionTitle>
         <div className="smu-card" style={{ padding: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -153,24 +146,18 @@ export function OpskriftForm({
           <Felt label="Laminat" value={laminat} onChange={setLaminat} placeholder="fx Oraguard 215" forslag={forslag.laminat} />
         </div>
         <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text-muted)', margin: '8px 0 0 2px' }}>
-          Fri tekst. Materialer ejes af SMU Source — her registreres kun hvad opskriften bruger.
+          Fri tekst. Materialer ejes af SMU Source.
         </p>
       </section>
 
-      {/* C · ONYX-produktionsopsætning */}
       <section style={{ marginBottom: 20 }}>
         <SectionTitle>ONYX-produktionsopsætning</SectionTitle>
-        <div className="smu-card" style={{ padding: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-          <Felt label="Printer" value={printer} onChange={() => {}} readOnly />
-          <Felt label="Media Group" value={mediaGroup} onChange={setMediaGroup} placeholder="fx SMU Profiling 310823" forslag={forslag.media_group} />
-          <Felt label="Media Name" value={mediaName} onChange={setMediaName} placeholder="fx SMU Orajet 3551" forslag={mediaNameForslag} />
-          <Felt label="Print Mode" value={printmode} onChange={setPrintmode} placeholder="fx Gloss 4 pass HQ" forslag={printmodeForslag} />
-          <Felt label="Ink Setup" value={inkSetup} onChange={setInkSetup} placeholder="fx CMYKSS" forslag={forslag.ink_setup} />
-          <Felt label="Profil / Quick Set" value={profil} onChange={setProfil} placeholder="fx SMU-standard" />
+        <OnyxKonfig value={onyx} onChange={setOnyx} />
+        <div style={{ marginTop: 12 }}>
+          <Felt label="Profil / Quick Set (valgfri)" value={profil} onChange={setProfil} placeholder="fx SMU-standard" />
         </div>
       </section>
 
-      {/* D · Farvekanaler */}
       <section style={{ marginBottom: 20 }}>
         <SectionTitle>Farvekanaler</SectionTitle>
         <div className="smu-card" style={{ padding: 16 }}>
@@ -183,14 +170,13 @@ export function OpskriftForm({
             <Kanal label="Spot2" value={s2} onChange={setS2} />
           </div>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', margin: '10px 0 0' }}>
-            0–100. CMYK gør opskriften søgbar (fx “C0 M100 Y80 K5”). Spot1/Spot2 gemmes som kanalværdier.
+            0–100. CMYK gør opskriften søgbar. Spot1/Spot2 gemmes som kanalværdier.
           </p>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 800, margin: '14px 0 6px' }}>Rå outputopskrift (valgfri)</label>
           <textarea className="smu-input" value={output} onChange={(e) => setOutput(e.target.value)} placeholder="Faktisk ONYX-opskrift / kanalværdier…" />
         </div>
       </section>
 
-      {/* E · Note */}
       <section style={{ marginBottom: 24 }}>
         <SectionTitle>Note (valgfri)</SectionTitle>
         <textarea className="smu-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Fri note om opskriften…" />
@@ -210,17 +196,15 @@ export function OpskriftForm({
   )
 }
 
-function Felt({ label, value, onChange, placeholder, readOnly, forslag }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; readOnly?: boolean; forslag?: string[] }) {
+function Felt({ label, value, onChange, placeholder, forslag }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; forslag?: string[] }) {
   const listId = forslag && forslag.length ? `dl-${label.replace(/[^a-zA-Z]/g, '')}` : undefined
   return (
     <div>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{label}</label>
-      <input className="smu-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} readOnly={readOnly} list={listId} style={readOnly ? { color: 'var(--color-text-muted)' } : undefined} />
+      <input className="smu-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} list={listId} />
       {listId && (
         <datalist id={listId}>
-          {forslag!.map((f) => (
-            <option key={f} value={f} />
-          ))}
+          {forslag!.map((f) => (<option key={f} value={f} />))}
         </datalist>
       )}
     </div>

@@ -36,7 +36,7 @@ export function OpskriftIndhold({ view, history }: { view: PrintopskriftView; hi
   if (o.media_group) felter.push(['Media Group', o.media_group])
   if (o.media_name) felter.push(['Media Name', o.media_name])
   felter.push(['Print Mode', o.printmode ?? '—'])
-  if (o.ink_setup) felter.push(['Ink Setup', o.ink_setup])
+  if (o.color_management) felter.push(['Color Management', o.color_management])
   felter.push(['Profil / Quick Set', o.profil_quickset ?? '—'])
   felter.push(['CMYK', harCmyk(o) ? formatCmyk({ c: o.cmyk_c, m: o.cmyk_m, y: o.cmyk_y, k: o.cmyk_k }) : '—'])
   if (ekstra.length) felter.push(['Spots', ekstra.map(([k, v]) => `${k} ${v}`).join(' · ')])

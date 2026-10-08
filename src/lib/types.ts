@@ -263,11 +263,18 @@ export interface Printopskrift {
   medie: string | null
   /** Laminat (fri tekst), separat fra printmedie. */
   laminat?: string | null
-  // ── ONYX-produktionskonfiguration (Color-ejet, ≠ Source-produkt) ──
+  // ── ONYX-konfiguration: snapshot-tekst (frosset) + katalog-FK (reference) ──
   media_group?: string | null
   media_name?: string | null
+  /** @deprecated fjernet fra UI (TRIN B.1); kolonnen bevaret. */
   ink_setup?: string | null
   printmode: string | null
+  color_management?: string | null
+  onyx_printer_id?: string | null
+  onyx_media_group_id?: string | null
+  onyx_media_id?: string | null
+  onyx_printmode_id?: string | null
+  onyx_color_management_id?: string | null
   profil_quickset: string | null
   /** Autoritativ kilde for ALLE kanaler: {C,M,Y,K,Spot1,Spot2}. */
   kanalvaerdier: Record<string, number> | null
@@ -305,20 +312,49 @@ export interface AktivitetItem {
 }
 
 export interface CreatePrintopskriftInput {
-  printer: string | null
   medie: string | null
   laminat: string | null
-  media_group: string | null
-  media_name: string | null
-  ink_setup: string | null
-  printmode: string | null
   profil_quickset: string | null
+  // ONYX: snapshot-navn + katalog-FK (vælges fra stamdata; snapshot fryses på opskriften)
+  printer: string | null
+  onyx_printer_id: string | null
+  media_group: string | null
+  onyx_media_group_id: string | null
+  media_name: string | null
+  onyx_media_id: string | null
+  printmode: string | null
+  onyx_printmode_id: string | null
+  color_management: string | null
+  onyx_color_management_id: string | null
   cmyk: CmykVaerdier | null
   /** Spot1/Spot2 — gemmes KUN i kanalvaerdier jsonb (ingen egne kolonner). */
   spot1: number | null
   spot2: number | null
   outputopskrift: string | null
   note: string | null
+}
+
+// ── ONYX-stamdatakatalog ──
+export interface OnyxPrinter { id: string; navn: string; aktiv: boolean }
+export interface OnyxMediaGroup { id: string; printer_id: string; navn: string; aktiv: boolean }
+export interface OnyxMedia { id: string; media_group_id: string; navn: string; aktiv: boolean }
+export interface OnyxPrintmode { id: string; media_id: string; navn: string; aktiv: boolean }
+export interface OnyxColorManagement { id: string; navn: string; er_standard: boolean; aktiv: boolean }
+/** Ét katalogniveau. `parentId` = forælder (printer/group/media); null for printer + color_management. */
+export type OnyxNiveau = 'printer' | 'media_group' | 'media' | 'printmode' | 'color_management'
+
+/** Valgt ONYX-konfiguration (katalog-FK + snapshot-navn) i formularen. */
+export interface OnyxValg {
+  printer_id: string | null; printer_navn: string | null
+  media_group_id: string | null; media_group_navn: string | null
+  media_id: string | null; media_navn: string | null
+  printmode_id: string | null; printmode_navn: string | null
+  color_management_id: string | null; color_management_navn: string | null
+}
+export const TOM_ONYX: OnyxValg = {
+  printer_id: null, printer_navn: null, media_group_id: null, media_group_navn: null,
+  media_id: null, media_navn: null, printmode_id: null, printmode_navn: null,
+  color_management_id: null, color_management_navn: null,
 }
 
 /** Datalist-forslag til printopskrift-felter (fra faktiske data; fri tekst altid mulig). */

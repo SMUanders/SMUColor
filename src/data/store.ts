@@ -15,6 +15,12 @@ import type {
   Material,
   MaterialColor,
   NodeType,
+  OnyxColorManagement,
+  OnyxMedia,
+  OnyxMediaGroup,
+  OnyxNiveau,
+  OnyxPrinter,
+  OnyxPrintmode,
   Printopskrift,
   PrintopskriftFeltforslag,
   PrintopskriftView,
@@ -160,8 +166,17 @@ export interface FarveStore {
   updatePrintopskrift(id: string, input: CreatePrintopskriftInput, user: CurrentUser): Promise<Printopskrift>
   /** Append-only historik for en printopskrift (nyeste først). */
   getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]>
-  /** Datalist-forslag til printopskrift-felter fra faktiske data. */
+  /** Datalist-forslag til fri-tekst-felter (printmedie/laminat) fra faktiske data. */
   printopskriftFeltforslag(): Promise<PrintopskriftFeltforslag>
+
+  // ── ONYX-stamdatakatalog (afhængige dropdowns) ──
+  onyxPrintere(): Promise<OnyxPrinter[]>
+  onyxMediaGroups(printerId: string): Promise<OnyxMediaGroup[]>
+  onyxMedier(mediaGroupId: string): Promise<OnyxMedia[]>
+  onyxPrintmodes(mediaId: string): Promise<OnyxPrintmode[]>
+  onyxColorManagement(): Promise<OnyxColorManagement[]>
+  /** Opret (eller find eksisterende) katalogværdi på et niveau. Kræver bruger+. */
+  onyxOpret(niveau: OnyxNiveau, parentId: string | null, navn: string, user: CurrentUser): Promise<{ id: string; navn: string }>
   /** Alle printopskrifter (Canon/ONYX-området), nyeste først. */
   listPrintopskrifter(): Promise<PrintopskriftView[]>
   /** EKSAKT CMYK-søgning i registrerede printopskrifter. */

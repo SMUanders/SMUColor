@@ -13,6 +13,12 @@ import type {
   Material,
   MaterialColor,
   NodeType,
+  OnyxColorManagement,
+  OnyxMedia,
+  OnyxMediaGroup,
+  OnyxNiveau,
+  OnyxPrinter,
+  OnyxPrintmode,
   Printopskrift,
   PrintopskriftFeltforslag,
   PrintopskriftView,
@@ -117,10 +123,33 @@ export class LocalStore implements FarveStore {
     relationer: [],
     printopskrifter: [],
   }
+  // ONYX-katalog (dev-seed; inline-tilføjelser i hukommelsen).
+  private onyx = {
+    printer: [] as OnyxPrinter[],
+    media_group: [] as OnyxMediaGroup[],
+    media: [] as OnyxMedia[],
+    printmode: [] as OnyxPrintmode[],
+    color_management: [] as OnyxColorManagement[],
+  }
   private ready: Promise<void>
 
   constructor() {
     this.ready = this.init()
+    this.seedOnyx()
+  }
+
+  private seedOnyx() {
+    const p: OnyxPrinter = { id: uid(), navn: 'Canon Colorado M-Series', aktiv: true }
+    const g: OnyxMediaGroup = { id: uid(), printer_id: p.id, navn: 'SMU Profiling 310823', aktiv: true }
+    const m: OnyxMedia = { id: uid(), media_group_id: g.id, navn: 'SMU Orajet 3551', aktiv: true }
+    const pm: OnyxPrintmode = { id: uid(), media_id: m.id, navn: 'Gloss SMU 4 pass high quality laminated', aktiv: true }
+    this.onyx = {
+      printer: [p],
+      media_group: [g],
+      media: [m],
+      printmode: [pm],
+      color_management: [{ id: uid(), navn: 'European Perceptual (Colorful)', er_standard: true, aktiv: true }],
+    }
   }
 
   private async init() {
@@ -608,8 +637,13 @@ export class LocalStore implements FarveStore {
     o.laminat = input.laminat ?? null
     o.media_group = input.media_group ?? null
     o.media_name = input.media_name ?? null
-    o.ink_setup = input.ink_setup ?? null
     o.printmode = input.printmode ?? null
+    o.color_management = input.color_management ?? null
+    o.onyx_printer_id = input.onyx_printer_id ?? null
+    o.onyx_media_group_id = input.onyx_media_group_id ?? null
+    o.onyx_media_id = input.onyx_media_id ?? null
+    o.onyx_printmode_id = input.onyx_printmode_id ?? null
+    o.onyx_color_management_id = input.onyx_color_management_id ?? null
     o.profil_quickset = input.profil_quickset ?? null
     o.cmyk_c = input.cmyk?.c ?? null
     o.cmyk_m = input.cmyk?.m ?? null
@@ -642,6 +676,53 @@ export class LocalStore implements FarveStore {
     }
   }
 
+  // ── ONYX-stamdatakatalog (dev; inline-tilføjelser i hukommelsen) ──
+  async onyxPrintere(): Promise<OnyxPrinter[]> {
+    await this.ready
+    return this.onyx.printer.filter((x) => x.aktiv)
+  }
+  async onyxMediaGroups(printerId: string): Promise<OnyxMediaGroup[]> {
+    await this.ready
+    return this.onyx.media_group.filter((x) => x.aktiv && x.printer_id === printerId)
+  }
+  async onyxMedier(mediaGroupId: string): Promise<OnyxMedia[]> {
+    await this.ready
+    return this.onyx.media.filter((x) => x.aktiv && x.media_group_id === mediaGroupId)
+  }
+  async onyxPrintmodes(mediaId: string): Promise<OnyxPrintmode[]> {
+    await this.ready
+    return this.onyx.printmode.filter((x) => x.aktiv && x.media_id === mediaId)
+  }
+  async onyxColorManagement(): Promise<OnyxColorManagement[]> {
+    await this.ready
+    return this.onyx.color_management.filter((x) => x.aktiv)
+  }
+  async onyxOpret(niveau: OnyxNiveau, parentId: string | null, navn: string): Promise<{ id: string; navn: string }> {
+    await this.ready
+    const n = navn.trim()
+    if (!n) throw new Error('Navn påkrævet.')
+    const eq = (a: string) => a.trim().toLowerCase() === n.toLowerCase()
+    if (niveau === 'printer') {
+      const ex = this.onyx.printer.find((x) => eq(x.navn)); if (ex) return { id: ex.id, navn: ex.navn }
+      const r: OnyxPrinter = { id: uid(), navn: n, aktiv: true }; this.onyx.printer.push(r); return { id: r.id, navn: r.navn }
+    }
+    if (niveau === 'color_management') {
+      const ex = this.onyx.color_management.find((x) => eq(x.navn)); if (ex) return { id: ex.id, navn: ex.navn }
+      const r: OnyxColorManagement = { id: uid(), navn: n, er_standard: false, aktiv: true }; this.onyx.color_management.push(r); return { id: r.id, navn: r.navn }
+    }
+    if (!parentId) throw new Error('Vælg forælder først.')
+    if (niveau === 'media_group') {
+      const ex = this.onyx.media_group.find((x) => x.printer_id === parentId && eq(x.navn)); if (ex) return { id: ex.id, navn: ex.navn }
+      const r: OnyxMediaGroup = { id: uid(), printer_id: parentId, navn: n, aktiv: true }; this.onyx.media_group.push(r); return { id: r.id, navn: r.navn }
+    }
+    if (niveau === 'media') {
+      const ex = this.onyx.media.find((x) => x.media_group_id === parentId && eq(x.navn)); if (ex) return { id: ex.id, navn: ex.navn }
+      const r: OnyxMedia = { id: uid(), media_group_id: parentId, navn: n, aktiv: true }; this.onyx.media.push(r); return { id: r.id, navn: r.navn }
+    }
+    const ex = this.onyx.printmode.find((x) => x.media_id === parentId && eq(x.navn)); if (ex) return { id: ex.id, navn: ex.navn }
+    const r: OnyxPrintmode = { id: uid(), media_id: parentId, navn: n, aktiv: true }; this.onyx.printmode.push(r); return { id: r.id, navn: r.navn }
+  }
+
   async createPrintopskrift(color: { kind: NodeType; refId: string }, input: CreatePrintopskriftInput): Promise<{ id: string }> {
     await this.ready
     const nodeId = this.localFindOrCreateNode(color.kind, color.refId)
@@ -653,8 +734,13 @@ export class LocalStore implements FarveStore {
       laminat: input.laminat ?? null,
       media_group: input.media_group ?? null,
       media_name: input.media_name ?? null,
-      ink_setup: input.ink_setup ?? null,
       printmode: input.printmode ?? null,
+      color_management: input.color_management ?? null,
+      onyx_printer_id: input.onyx_printer_id ?? null,
+      onyx_media_group_id: input.onyx_media_group_id ?? null,
+      onyx_media_id: input.onyx_media_id ?? null,
+      onyx_printmode_id: input.onyx_printmode_id ?? null,
+      onyx_color_management_id: input.onyx_color_management_id ?? null,
       profil_quickset: input.profil_quickset ?? null,
       kanalvaerdier: flettKanaler(null, input.cmyk, input.spot1, input.spot2),
       cmyk_c: input.cmyk?.c ?? null,

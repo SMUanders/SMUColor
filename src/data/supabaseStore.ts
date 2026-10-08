@@ -15,6 +15,12 @@ import type {
   NodeType,
   Printopskrift,
   PrintopskriftView,
+  OnyxColorManagement,
+  OnyxMedia,
+  OnyxMediaGroup,
+  OnyxNiveau,
+  OnyxPrinter,
+  OnyxPrintmode,
   PrintopskriftFeltforslag,
   ProductionContext,
   ReferenceColor,
@@ -113,13 +119,18 @@ function flettKanaler(eksisterende: Record<string, number> | null, cmyk: CmykVae
   return Object.keys(base).length ? base : null
 }
 
-/** ONYX/materiale-felter fra input (fri tekst; Source-reference indføres ikke her). */
-function v2Felter(input: CreatePrintopskriftInput) {
+/** Materiale- + ONYX-felter: snapshot-tekst + katalog-FK. ink_setup skrives ikke (fjernet fra UI). */
+function onyxFelter(input: CreatePrintopskriftInput) {
   return {
     laminat: input.laminat ?? null,
     media_group: input.media_group ?? null,
     media_name: input.media_name ?? null,
-    ink_setup: input.ink_setup ?? null,
+    color_management: input.color_management ?? null,
+    onyx_printer_id: input.onyx_printer_id ?? null,
+    onyx_media_group_id: input.onyx_media_group_id ?? null,
+    onyx_media_id: input.onyx_media_id ?? null,
+    onyx_printmode_id: input.onyx_printmode_id ?? null,
+    onyx_color_management_id: input.onyx_color_management_id ?? null,
   }
 }
 
@@ -659,7 +670,7 @@ export class SupabaseStore implements FarveStore {
     const patch = {
       printer: input.printer ?? 'Canon Colorado M-series',
       medie: input.medie ?? null,
-      ...v2Felter(input),
+      ...onyxFelter(input),
       printmode: input.printmode ?? null,
       profil_quickset: input.profil_quickset ?? null,
       kanalvaerdier: kanal,
@@ -694,6 +705,53 @@ export class SupabaseStore implements FarveStore {
     }
   }
 
+  // ── ONYX-stamdatakatalog ──
+  async onyxPrintere(): Promise<OnyxPrinter[]> {
+    const { data } = await this.sb.from('farve_onyx_printer').select('id,navn,aktiv').eq('aktiv', true).order('navn')
+    return (data as OnyxPrinter[]) ?? []
+  }
+  async onyxMediaGroups(printerId: string): Promise<OnyxMediaGroup[]> {
+    const { data } = await this.sb.from('farve_onyx_media_group').select('id,printer_id,navn,aktiv').eq('printer_id', printerId).eq('aktiv', true).order('navn')
+    return (data as OnyxMediaGroup[]) ?? []
+  }
+  async onyxMedier(mediaGroupId: string): Promise<OnyxMedia[]> {
+    const { data } = await this.sb.from('farve_onyx_media').select('id,media_group_id,navn,aktiv').eq('media_group_id', mediaGroupId).eq('aktiv', true).order('navn')
+    return (data as OnyxMedia[]) ?? []
+  }
+  async onyxPrintmodes(mediaId: string): Promise<OnyxPrintmode[]> {
+    const { data } = await this.sb.from('farve_onyx_printmode').select('id,media_id,navn,aktiv').eq('media_id', mediaId).eq('aktiv', true).order('navn')
+    return (data as OnyxPrintmode[]) ?? []
+  }
+  async onyxColorManagement(): Promise<OnyxColorManagement[]> {
+    const { data } = await this.sb.from('farve_onyx_color_management').select('id,navn,er_standard,aktiv').eq('aktiv', true).order('navn')
+    return (data as OnyxColorManagement[]) ?? []
+  }
+  async onyxOpret(niveau: OnyxNiveau, parentId: string | null, navn: string, user: CurrentUser): Promise<{ id: string; navn: string }> {
+    const n = navn.trim()
+    if (!n) throw new Error('Navn påkrævet.')
+    const tabel: Record<OnyxNiveau, string> = { printer: 'farve_onyx_printer', media_group: 'farve_onyx_media_group', media: 'farve_onyx_media', printmode: 'farve_onyx_printmode', color_management: 'farve_onyx_color_management' }
+    const parentCol: Partial<Record<OnyxNiveau, string>> = { media_group: 'printer_id', media: 'media_group_id', printmode: 'media_id' }
+    const table = tabel[niveau]
+    const col = parentCol[niveau]
+    const row: Record<string, unknown> = { navn: n, created_by: user.id, created_by_navn: user.navn }
+    if (col) {
+      if (!parentId) throw new Error('Vælg forælder først.')
+      row[col] = parentId
+    }
+    const { data, error } = await this.sb.from(table).insert(row).select('id,navn').single()
+    if (error) {
+      if (/duplicate|unique/i.test(error.message)) {
+        let q = this.sb.from(table).select('id,navn').ilike('navn', n)
+        if (col && parentId) q = q.eq(col, parentId)
+        const { data: ex } = await q.limit(1)
+        const found = (ex as { id: string; navn: string }[] | null)?.[0]
+        if (found) return found
+      }
+      throw error
+    }
+    return data as { id: string; navn: string }
+  }
+
   async getPrintopskriftHistorik(id: string): Promise<VerificationHistory[]> {
     const { data } = await this.sb.from('farve_printopskrift_historik').select('*').eq('opskrift_id', id).order('created_at', { ascending: false })
     return ((data as (Omit<VerificationHistory, 'match_id'> & { opskrift_id: string })[] | null) ?? []).map((r) => ({ ...r, match_id: r.opskrift_id }))
@@ -706,7 +764,7 @@ export class SupabaseStore implements FarveStore {
       node_id: nodeId,
       printer: input.printer ?? 'Canon Colorado M-series',
       medie: input.medie ?? null,
-      ...v2Felter(input),
+      ...onyxFelter(input),
       printmode: input.printmode ?? null,
       profil_quickset: input.profil_quickset ?? null,
       kanalvaerdier: kanal,
