@@ -121,11 +121,12 @@ export function FarveArbejdsrum({ farve, canEdit, canMatch }: { farve: FarveValg
       </div>
 
       {/* ── Drawers ──────────────────────────────────────────────────── */}
-      <Drawer open={ny === 'match'} title="Opret farvematch" onClose={closeDrawer}>
+      {/* Skufferne kan også åbnes via URL (?ny=…); de vises kun for den, der må gemme. */}
+      <Drawer open={ny === 'match' && kanMatche} title="Opret farvematch" onClose={closeDrawer}>
         <MatchDrawer fra={farve} onDone={efterAendring} />
       </Drawer>
 
-      <Drawer open={ny === 'opskrift'} title="Opret printopskrift" onClose={closeDrawer}>
+      <Drawer open={ny === 'opskrift' && canEdit} title="Opret printopskrift" onClose={closeDrawer}>
         <OpretOpskriftDrawer farve={farve} onDone={efterAendring} />
       </Drawer>
 
