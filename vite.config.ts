@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
+import { platformUpdate } from './src/platform-update/vitePlatformUpdate'
 
 // Bind til den port harness'en tildeler via PORT-env (autoPort), ellers Vites
 // standard. Ingen strictPort → falder tilbage til næste ledige port hvis optaget.
@@ -19,6 +20,6 @@ export default defineConfig({
   define: {
     __APP_PRODUCT_VERSION__: JSON.stringify(PRODUCT_VERSION),
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), platformUpdate()],
   server: envPort ? { port: envPort } : undefined,
 })

@@ -4,9 +4,9 @@
 //  - PRODUKTVERSION (menneskelig, fx "v1.0") — eneste sandhedskilde er
 //    package.json "version", indlejret ved build som __APP_PRODUCT_VERSION__.
 //    Vises diskret i UI.
-//  - BUILD-ID (teknisk bygnings-tidsstempel) — findes ikke i denne app og
-//    indføres IKKE her. Har appen senere brug for update-detektion, tilføjes
-//    et separat __APP_VERSION__ som i SMU Tid. De to må ikke blandes sammen.
+//  - BUILD-ID (teknisk bygnings-tidsstempel) — hører IKKE hjemme her. Det
+//    kommer fra det fælles modul `src/platform-update/` (__APP_VERSION__) og
+//    bruges kun til update-detektion. De to må ikke blandes sammen.
 //
 // Deklarationen ligger her frem for i vite-env.d.ts, så hele produktversions-
 // begrebet kan kopieres til en ny app som én fil.
