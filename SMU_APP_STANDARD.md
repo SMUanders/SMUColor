@@ -249,6 +249,18 @@ modtageren ejer opgaven og validerer selv; konteksten er en stabil reference (fx
 kopieret domænedata; adgang afgøres hos modtageren (et link er ikke en adgangstildeling); handoff må åbne i ny
 fane; ingen skjult skrivning på tværs af domæner. Konkrete handoffs kræver produktbeslutning først.
 
+**App-ikon og PWA — godkendt standard (TR-098).**
+- **Ikonstil:** navy `#213746` bund + ét enkelt hvidt symbol for appen — hver app vælger et passende symbol,
+  evt. med blå `#3f9ed3` accent. Ingen tilfældige farver. Gælder nye ikoner; eksisterende afvigere står i
+  `NEXT_STEPS.md` → *Deferred housekeeping*, og et ikon ændres kun ved en eksplicit designbeslutning.
+- **Samme ikon overalt:** favicon i fanen og app-ikon på mobil (hjemmeskærm) er det samme ikon. Det genereres
+  fra appens `public/favicon.svg` — ingen ekstra runtime-dep. Filer og størrelser: §12.
+- **PWA = kun ikon + standalone-åbning:** `manifest.webmanifest` med `display: standalone`, `theme_color`
+  navy `#213746` og `background_color` beige `#f4f2ed`; `index.html` med `theme-color`,
+  `apple-mobile-web-app-capable` + `-title`.
+- **Ingen service worker og ingen offline-cache.** Apps kræver internet og login. Den fælles
+  update-notifikation (§15) forudsætter, at ingen service worker cacher gamle filer.
+
 ## 12. Definition: platformklar app
 
 En ny SMU-app er **platformklar** — altså klar til at komme i Hub og blive rullet ud til medarbejdere — først
@@ -261,10 +273,10 @@ når alle relevante punkter er på plads. Punkter der bevidst ikke gælder appen
 4. backend/RLS håndhæver adgangen — frontend-tjek alene er ikke sikkerhed.
 
 **Identitet og ikoner**
-5. officielt app-ikon besluttet (opfind ikke et permanent ikon for en app uden identitet);
+5. officielt app-ikon besluttet i platformens ikonstil (§11) — opfind ikke et permanent ikon for en app uden identitet;
 6. browser-favicon (SVG + PNG-fallback);
 7. iOS `apple-touch-icon` 180×180 som PNG — SVG virker ikke;
-8. PWA 192×192 og 512×512 + `manifest.webmanifest` med `theme_color`/`background_color`;
+8. PWA 192×192 og 512×512 + `manifest.webmanifest` med `theme_color`/`background_color` — uden service worker (§11);
 9. ægte maskable 512×512 med indholdet inden for 80 %-sikkerhedszonen (genbrug ikke `any`-filen);
 10. samme ikon kopieret til Hubs `public/icons/apps/` — Hub viser appens **egen** identitet.
 
