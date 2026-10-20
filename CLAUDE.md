@@ -56,29 +56,20 @@ Netlify: sæt samme to `VITE_`-vars i UI før deploy.
 
 **V1.4 (2026-10-07):** Generisk referencelag anvendt LIVE via canonical hub
 (`smu-os-v2/supabase/migrations/20261007130000_farve_reference_generisk.sql`,
-`supabase db push --linked`). `farve_reference_biblioteker` (2) +
+`supabase db push --linked` — uden om gaten og DEV; hændelsen bag TR-092, gentag den ikke). `farve_reference_biblioteker` (2) +
 `farve_reference_farver` (Pantone-identitet lazy + 217 RAL Classic) oprettet;
 `farve_noder` generaliseret til `type reference|source|lokal`. Pantone-backing
 (2.390) urørt. Eksisterende pilot-knude migreret uden tab af relation/opskrift.
 
-## Opsætning mod delt Supabase (hvis nulstilling nødvendig) — KRÆVER MENNESKE
-Det delte prod-projekt er `smu-os-v2` (ref `ggnnfzhhqhwmugubfxuj`, West EU). Skema
-til shared prod skal køres af et menneske (kan ikke dry-run'es uden Docker; kræver
-DB-password). Migrationen er additiv (`create ... if not exists`, `farve_`-prefix,
-ingen drops). To veje:
+## Skemaændringer og nulstilling — kun via hubben (TR-092)
+Color har **ingen egen migrationsvej** mod det delte projekt. Ændringer skrives som nye migrationer i
+`smu-os/supabase/migrations_kladde/` og anvendes kun gennem hubbens gate, altid DEV → LIVE: `node scripts/db-apply.mjs --env dev --yes` → verificér → rapport → STOP → efter GO `--env live --yes --bekraeft-live` (se `smu-os/docs/SUPABASE_MIGRATIONS.md`, TR-092).
 
-**A. Supabase Studio (anbefalet — du styrer prod):**
-1. Kør `supabase/migrations/20260814120000_farve_schema.sql` i SQL Editor.
-2. Kør `supabase/migrations/20260814120100_farve_rls.sql`.
-3. Kør `supabase/seed/0001_reference_colors_seed.sql` (2.390 spot, idempotent).
-4. Kør `supabase/seed/0002_legacy_seed.sql` (111 forslag, 118 materialefarver, ...).
-
-**B. CLI (repoet er allerede `supabase init`'et med `config.toml`):**
-```
-supabase link --project-ref ggnnfzhhqhwmugubfxuj   # beder om DB-password
-supabase db push                                   # kører migrations
-# seeds køres via Studio, eller lokalt med: supabase db reset (kræver Docker)
-```
+- **Kør aldrig `supabase link` eller `supabase db push`** fra dette repo (eller hubben) — et link fik
+  7. okt. 2026 et råt push til at ramme LIVE uden om gaten og DEV.
+- **Kør ikke SQL Editor mod prod** som normal vej; en akut manuel ændring skal straks reconciles i hubben.
+- Filerne i `supabase/migrations/` og `supabase/seed/` her er historiske (pre-hub) og afventer reconciliation
+  (`smu-os/NEXT_STEPS.md` → *Reconciliation: legacy-migrationsmapper i app-repoer*). De anvendes ikke.
 
 Derefter:
 5. Sæt `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (Netlify UI / `.env.local`). Så skifter appen automatisk fra lokal dev til Supabase.
