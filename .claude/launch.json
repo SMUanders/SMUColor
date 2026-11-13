@@ -2,11 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "smu-color-dev",
+      "name": "smu-color",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5173,
-      "autoPort": true
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5186
     }
   ]
 }
