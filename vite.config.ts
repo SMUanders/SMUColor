@@ -4,12 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
 import { platformUpdate } from './src/platform-update/vitePlatformUpdate'
 
-// Bind til den port harness'en tildeler via PORT-env (autoPort), ellers Vites
-// standard. Ingen strictPort → falder tilbage til næste ledige port hvis optaget.
-const envPort = Number(
-  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.PORT,
-)
-
 // https://vitejs.dev/config/
 // Menneskelig PRODUKTVERSION — eneste sandhedskilde er package.json "version".
 // Indlejres som __APP_PRODUCT_VERSION__ og vises diskret i UI. Adskilt fra et
@@ -21,5 +15,6 @@ export default defineConfig({
     __APP_PRODUCT_VERSION__: JSON.stringify(PRODUCT_VERSION),
   },
   plugins: [react(), tailwindcss(), platformUpdate()],
-  server: envPort ? { port: envPort } : undefined,
+  // Fast port pr. app (porttabel i SMU_APP_STANDARD.md). strictPort: optaget port = fejl, ikke en anden port.
+  server: { port: 5186, strictPort: true },
 })
